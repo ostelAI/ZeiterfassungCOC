@@ -153,6 +153,12 @@
   }
   .feierabend .fa-time{ font-family:'JetBrains Mono', monospace; font-size:24px; font-weight:700; color:var(--accent); }
   .feierabend .fa-lbl{ font-size:11px; color:var(--text-muted); margin-top:2px; text-transform:uppercase; letter-spacing:0.5px; }
+  .feierabend .fa-extra{ display:flex; justify-content:center; gap:26px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+  .feierabend .fa-mini{ display:flex; flex-direction:column; align-items:center; }
+  .feierabend .fa-mini-v{ font-family:'JetBrains Mono', monospace; font-size:14px; font-weight:600; }
+  .feierabend .fa-mini-v.pos{ color:var(--positive); }
+  .feierabend .fa-mini-v.warn{ color:var(--accent); }
+  .feierabend .fa-mini-k{ font-size:10px; color:var(--text-muted); margin-top:2px; text-transform:uppercase; letter-spacing:0.4px; }
 
   .pillrow{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:6px; }
   .pill{
@@ -299,7 +305,7 @@
 <script>
 (function(){
   "use strict";
-  var APP_VERSION = "1.9";
+  var APP_VERSION = "1.10";
   var STORAGE_KEY = "zeiterfassung_data_v1";
 
   /* ---------- State ---------- */
@@ -466,6 +472,12 @@
     }
     return erster + sollMs + pausenMs;
   }
+  // Über-/Fehlstunden-Saldo der Woche, die den angegebenen Tag enthält (Ist minus Soll über Mo–So)
+  function wochenSaldo(dateStr){
+    var saldo = 0;
+    getWeekDates(dateStr).forEach(function(ds){ saldo += istStundenTag(ds) - sollStundenTag(ds); });
+    return saldo;
+  }
 
   /* ---------- Rendering ---------- */
   var mainEl = document.getElementById("main");
@@ -536,7 +548,12 @@
 
     var fa = feierabendTs(ds);
     if(fa){
-      html += '<div class="card"><div class="feierabend"><div class="fa-time">' + fmtTime(fa) + ' Uhr</div><div class="fa-lbl">' + (Date.now() > fa ? "Feierabend war um" : "Feierabend ca.") + '</div></div></div>';
+      var wochenUeber = wochenSaldo(ds);
+      html += '<div class="card"><div class="feierabend"><div class="fa-time">' + fmtTime(fa) + ' Uhr</div><div class="fa-lbl">' + (Date.now() > fa ? "Feierabend war um" : "Feierabend ca.") + '</div>';
+      html += '<div class="fa-extra">';
+      html += '<div class="fa-mini"><span class="fa-mini-v ' + (ueber>=0?'pos':'warn') + '">' + (ueber>=0?'+':'') + fmtH(ueber) + '</span><span class="fa-mini-k">Ü heute</span></div>';
+      html += '<div class="fa-mini"><span class="fa-mini-v ' + (wochenUeber>=0?'pos':'warn') + '">' + (wochenUeber>=0?'+':'') + fmtH(wochenUeber) + '</span><span class="fa-mini-k">Ü Woche</span></div>';
+      html += '</div></div></div>';
     }
 
     html += '<div class="card"><h2 style="margin-bottom:8px;">Heute</h2>';
