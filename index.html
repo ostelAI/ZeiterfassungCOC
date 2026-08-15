@@ -299,7 +299,7 @@
 <script>
 (function(){
   "use strict";
-  var APP_VERSION = "1.8";
+  var APP_VERSION = "1.9";
   var STORAGE_KEY = "zeiterfassung_data_v1";
 
   /* ---------- State ---------- */
@@ -456,7 +456,10 @@
     if(state.laufend && state.laufend.datum === dateStr) starts.push(state.laufend.startTs);
     if(starts.length===0) return null;
     var erster = Math.min.apply(null, starts);
-    var sollMs = sollStundenTag(dateStr) * 3600000;
+    // Feierabend-Ziel: immer die durchschnittliche Tagesarbeitszeit (Sollstunden/Woche ÷ Arbeitstage),
+    // unabhängig davon, ob der heutige Wochentag als Arbeitstag markiert ist (z.B. spontane Zusatzschicht)
+    var sollProTag = state.settings.sollWoche / (state.settings.workdays.length || 1);
+    var sollMs = sollProTag * 3600000;
     var pausenMs = pausenStundenTag(dateStr) * 3600000;
     if(state.laufendPause && state.laufendPause.datum === dateStr){
       pausenMs += (Date.now() - state.laufendPause.startTs);
