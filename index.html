@@ -29,7 +29,7 @@
     --radius:14px;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  html,body{height:100%;}
+  html,body{height:100%; overflow:hidden;}
   body{
     margin:0;
     background:var(--bg);
@@ -37,8 +37,10 @@
     font-family:'Inter', sans-serif;
     -webkit-font-smoothing:antialiased;
     overscroll-behavior:none;
+    position:fixed;
+    inset:0;
+    width:100%;
     padding-top:env(safe-area-inset-top);
-    position:relative;
   }
   body::before{
     content:"";
@@ -47,7 +49,7 @@
     opacity:0.09;
     mix-blend-mode:soft-light;
   }
-  #app{ max-width:520px; margin:0 auto; min-height:100vh; display:flex; flex-direction:column; position:relative; z-index:1; }
+  #app{ max-width:520px; margin:0 auto; height:100%; display:flex; flex-direction:column; position:relative; z-index:1; }
   header.top{
     padding:20px 18px 14px;
     display:flex; align-items:baseline; justify-content:space-between;
@@ -75,7 +77,7 @@
     padding:7px 0 4px; font-size:10px; color:var(--text-muted); letter-spacing:0.6px; text-transform:uppercase;
   }
   .poweredby img{ width:18px; height:18px; border-radius:4px; opacity:0.9; }
-  #main{ flex:1; padding:16px 16px 90px; overflow-y:auto; }
+  #main{ flex:1; padding:16px 16px 90px; overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; }
   .card{
     background:
       repeating-linear-gradient(115deg, rgba(255,255,255,0.015) 0 2px, transparent 2px 5px),
@@ -177,6 +179,13 @@
   .badge.urlaub{ color:var(--accent); }
   .badge.ueberstd{ color:var(--positive); }
   .badge.feiertag{ color:var(--text); }
+
+  .dicon{ font-size:14px; margin-right:7px; display:inline-block; width:16px; text-align:center; }
+  .dicon.ico-urlaub{ color:var(--accent); }
+  .dicon.ico-feiertag{ color:var(--text); }
+  .dicon.ico-ueberstd{ color:var(--positive); }
+  .dicon.ico-warn{ color:#E8B23D; }
+  .dicon.ico-arbeit{ color:var(--text-muted); }
 
   .segrow{
     display:flex; align-items:center; gap:8px; background:var(--panel2); border:1px solid var(--border);
@@ -290,7 +299,7 @@
 <script>
 (function(){
   "use strict";
-  var APP_VERSION = "1.5";
+  var APP_VERSION = "1.8";
   var STORAGE_KEY = "zeiterfassung_data_v1";
 
   /* ---------- State ---------- */
@@ -398,6 +407,25 @@
     if(t && t.abwesenheit) return 0;
     return dailySollBase(dateStr);
   }
+  // erkennt Werktage in der Vergangenheit, an denen nichts erfasst wurde (vermutlich vergessen zu stempeln)
+  function istTagProblematisch(dateStr){
+    if(dateStr >= todayStr()) return false;
+    var t = getTag(dateStr);
+    if(t && t.abwesenheit) return false;
+    if(dailySollBase(dateStr) <= 0) return false;
+    return istStundenTag(dateStr) <= 0;
+  }
+  // liefert Icon-Zeichen + Farbklasse für die Tagesübersicht (Woche/Monat)
+  function dayIconInfo(dateStr){
+    var t = getTag(dateStr);
+    var abw = t ? t.abwesenheit : null;
+    if(abw === 'urlaub') return { ch: '✈', cls: 'ico-urlaub' };
+    if(abw === 'feiertag') return { ch: '★', cls: 'ico-feiertag' };
+    if(abw === 'ueberstunden') return { ch: '⇄', cls: 'ico-ueberstd' };
+    if(istTagProblematisch(dateStr)) return { ch: '⚠', cls: 'ico-warn' };
+    if(istStundenTag(dateStr) > 0) return { ch: '⚒', cls: 'ico-arbeit' };
+    return null;
+  }
   function fmtH(h){
     var sign = h < 0 ? "-" : "";
     h = Math.abs(h);
@@ -452,7 +480,7 @@
     else if(state.ui.tab === "monat") renderMonat();
     else if(state.ui.tab === "jahr") renderJahr();
     else if(state.ui.tab === "einstellungen") renderEinstellungen();
-    if(state.ui.tab === "heute" && state.laufendPause && state.laufendPause.datum === todayStr()){
+    if(state.ui.tab === "heute" && state.laufendPause){
       updatePauseDigits();
       pauseTickInterval = setInterval(updatePauseDigits, 1000);
     }
@@ -477,15 +505,15 @@
     var ueber = ist - soll;
 
     var dialClass = "", dialTime = "--:--", dialStat = "Nicht gestempelt";
-    if(state.laufendPause && state.laufendPause.datum===ds){
+    if(state.laufendPause){
       dialClass = "pause";
-      var vorherigeMs = pausenStundenTag(ds) * 3600000;
+      var vorherigeMs = pausenStundenTag(state.laufendPause.datum) * 3600000;
       var totalMs = vorherigeMs + (Date.now() - state.laufendPause.startTs);
       var totalS = Math.floor(totalMs/1000);
       var hh0 = Math.floor(totalS/3600), mm0 = pad(Math.floor((totalS%3600)/60)), ss0 = pad(totalS%60);
       dialTime = (hh0>0 ? hh0+":" : "") + mm0 + ":" + ss0;
       dialStat = "Pause läuft · insgesamt heute";
-    } else if(state.laufend && state.laufend.datum===ds){
+    } else if(state.laufend){
       dialClass = "working"; dialTime = fmtTime(state.laufend.startTs); dialStat = "Im Dienst seit";
     }
 
@@ -497,7 +525,7 @@
     html += '<div class="dstat">' + dialStat + '</div>';
     html += '</div>';
     html += '<div class="punchrow" id="punchRow"></div>';
-    var laufendAktiv = (state.laufend && state.laufend.datum===ds) || (state.laufendPause && state.laufendPause.datum===ds);
+    var laufendAktiv = !!(state.laufend || state.laufendPause);
     if(laufendAktiv){
       html += '<button class="ghostbtn" id="fixStartBtn" style="margin-top:10px;">Startzeit korrigieren</button>';
     }
@@ -558,7 +586,7 @@
     var addHours = document.getElementById("addManualHours");
     if(addHours) addHours.addEventListener("click", function(){ openManualHoursModal(ds); });
     var fixBtn = document.getElementById("fixStartBtn");
-    if(fixBtn) fixBtn.addEventListener("click", function(){ openFixStartModal(ds); });
+    if(fixBtn) fixBtn.addEventListener("click", function(){ openFixStartModal(); });
     var jobBtn = document.getElementById("jobSelectBtn");
     if(jobBtn) jobBtn.addEventListener("click", openJobPicker);
   }
@@ -567,9 +595,9 @@
     var row = document.getElementById("punchRow");
     if(!row) return;
     var html = "";
-    if(state.laufendPause && state.laufendPause.datum===ds){
+    if(state.laufendPause){
       html = '<button class="punchbtn" id="btnPauseEnde">Pause Ende</button>';
-    } else if(state.laufend && state.laufend.datum===ds){
+    } else if(state.laufend){
       html = '<button class="punchbtn secondary" id="btnPauseStart">Pause</button>';
       html += '<button class="punchbtn" id="btnGehen">Gehen</button>';
     } else {
@@ -582,18 +610,22 @@
     if(btnPauseStart) btnPauseStart.addEventListener("click", function(){ punch(btnPauseStart, function(){ state.laufendPause = { datum: ds, startTs: Date.now() }; }); });
     var btnPauseEnde = document.getElementById("btnPauseEnde");
     if(btnPauseEnde) btnPauseEnde.addEventListener("click", function(){ punch(btnPauseEnde, function(){
+      if(!state.laufendPause) return;
       var tg = ensureTag(state.laufendPause.datum);
       tg.pausen.push({ startTs: state.laufendPause.startTs, endTs: Date.now() });
       state.laufendPause = null;
     }); });
     var btnGehen = document.getElementById("btnGehen");
     if(btnGehen) btnGehen.addEventListener("click", function(){ punch(btnGehen, function(){
+      if(!state.laufend) return;
       var tg = ensureTag(state.laufend.datum);
       tg.segmente.push({ startTs: state.laufend.startTs, endTs: Date.now(), job: state.laufend.job || null });
       state.laufend = null;
     }); });
   }
   function punch(btn, mutate){
+    if(btn.disabled) return;
+    btn.disabled = true;
     btn.classList.add("pressed");
     setTimeout(function(){ mutate(); saveState(); render(); }, 130);
   }
@@ -716,6 +748,23 @@
     if(ne <= ns) ne = addDays(ne,1);
     return { startTs: ns.getTime(), endTs: ne.getTime() };
   }
+  // prüft, ob [startTs,endTs) sich mit einem bereits gespeicherten Eintrag gleichen Typs am selben Tag überschneidet
+  // (Pausen dürfen sich mit Arbeitszeiten überschneiden, das ist der Normalfall; geprüft wird nur gleicher Typ gegen gleichen Typ)
+  function findUeberlappung(dateStr, isPause, startTs, endTs, skipIdx){
+    var t = getTag(dateStr);
+    if(!t) return false;
+    var arr = isPause ? (t.pausen||[]) : (t.segmente||[]);
+    for(var i=0;i<arr.length;i++){
+      if(i === skipIdx) continue;
+      var item = arr[i];
+      if(startTs < item.endTs && endTs > item.startTs) return true;
+    }
+    return false;
+  }
+  function warnUeberlappung(){
+    var closeHint = openSheet('<h2>Überschneidung</h2><p>Der Zeitraum überschneidet sich mit einem bereits erfassten Eintrag. Bitte Zeiten anpassen.</p><div class="btnrow"><button class="btn primary" id="okBtn" style="flex:1">Ok</button></div>');
+    document.getElementById("okBtn").addEventListener("click", closeHint);
+  }
 
   function openEditSegModal(dateStr, type, idx, onDone){
     onDone = onDone || render;
@@ -759,6 +808,7 @@
         if(ne <= ns) ne = addDays(ne,1);
         times = { startTs: ns.getTime(), endTs: ne.getTime() };
       }
+      if(findUeberlappung(dateStr, isPause, times.startTs, times.endTs, idx)){ warnUeberlappung(); return; }
       item.startTs = times.startTs; item.endTs = times.endTs;
       if(!isPause){
         var jobEl = document.getElementById("segJob");
@@ -830,6 +880,7 @@
       if(isPause){
         var times = readPauseTimes(sheetEl, dateStr, null);
         if(!times) return;
+        if(findUeberlappung(dateStr, true, times.startTs, times.endTs, -1)){ warnUeberlappung(); return; }
         t.pausen.push({ startTs: times.startTs, endTs: times.endTs });
       } else {
         var sVal = document.getElementById("segStart").value;
@@ -840,6 +891,7 @@
         var startD = new Date(base.getFullYear(),base.getMonth(),base.getDate(),parseInt(sp[0]),parseInt(sp[1]));
         var endD = new Date(base.getFullYear(),base.getMonth(),base.getDate(),parseInt(ep[0]),parseInt(ep[1]));
         if(endD <= startD) endD = addDays(endD,1);
+        if(findUeberlappung(dateStr, false, startD.getTime(), endD.getTime(), -1)){ warnUeberlappung(); return; }
         var jobEl = document.getElementById("segJob");
         t.segmente.push({ startTs: startD.getTime(), endTs: endD.getTime(), job: jobEl ? (jobEl.value || null) : null });
       }
@@ -876,10 +928,11 @@
   }
 
   // Korrigiert die Startzeit eines gerade laufenden Stempels (Arbeit oder Pause)
-  function openFixStartModal(dateStr){
-    var isPause = !!(state.laufendPause && state.laufendPause.datum === dateStr);
+  function openFixStartModal(){
+    var isPause = !!state.laufendPause;
     var target = isPause ? state.laufendPause : state.laufend;
     if(!target) return;
+    var dateStr = target.datum;
     var html = '<h2>Startzeit korrigieren</h2>';
     html += '<p>' + (isPause ? "Wann hat die Pause wirklich angefangen?" : "Wann hast du wirklich angefangen zu arbeiten?") + '</p>';
     html += '<label class="field">Uhrzeit</label><input type="time" id="fixTime" value="' + fmtTime(target.startTs) + '">';
@@ -893,6 +946,11 @@
       var base = strToDate(dateStr);
       var p = v.split(":");
       var newTs = new Date(base.getFullYear(), base.getMonth(), base.getDate(), parseInt(p[0]), parseInt(p[1])).getTime();
+      if(newTs > Date.now()){
+        var closeHint = openSheet('<h2>Ungültige Uhrzeit</h2><p>Die Startzeit darf nicht in der Zukunft liegen.</p><div class="btnrow"><button class="btn primary" id="okBtn" style="flex:1">Ok</button></div>');
+        document.getElementById("okBtn").addEventListener("click", closeHint);
+        return;
+      }
       target.startTs = newTs;
       saveState(); close(); render();
     });
@@ -1038,6 +1096,7 @@
     html += '<button class="navbtn" id="prevWeek">‹</button>';
     html += '<div class="navlabel">KW ' + wnum + '<small>' + fmtRangeShort(dates[0], dates[6]) + '</small></div>';
     html += '<button class="navbtn" id="nextWeek">›</button></div>';
+    html += iconLegendHtml();
     html += '<div class="daylist">';
     dates.forEach(function(ds){
       var s = sollStundenTag(ds), i = istStundenTag(ds);
@@ -1059,13 +1118,25 @@
     bindDayRows();
   }
 
+  function iconLegendHtml(){
+    var html = '<div style="display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--text-muted);margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border);">';
+    html += '<span><span class="dicon ico-arbeit" style="margin-right:3px;">⚒</span>Arbeit</span>';
+    html += '<span><span class="dicon ico-urlaub" style="margin-right:3px;">✈</span>Urlaub</span>';
+    html += '<span><span class="dicon ico-feiertag" style="margin-right:3px;">★</span>Feiertag</span>';
+    html += '<span><span class="dicon ico-ueberstd" style="margin-right:3px;">⇄</span>Ü-Tag</span>';
+    html += '<span><span class="dicon ico-warn" style="margin-right:3px;">⚠</span>nicht gestempelt</span>';
+    html += '</div>';
+    return html;
+  }
   function dayRow(ds, soll, ist){
     var d = strToDate(ds);
     var isToday = ds === todayStr();
     var t = getTag(ds);
     var abw = t ? t.abwesenheit : null;
+    var icon = dayIconInfo(ds);
+    var iconHtml = icon ? '<span class="dicon ' + icon.cls + '">' + icon.ch + '</span>' : '<span class="dicon"></span>';
     var html = '<div class="dayitem ' + (isToday?'today':'') + '" data-date="' + ds + '">';
-    html += '<div class="dname">' + WD_NAMES[isoWeekday(d)-1] + '<small>' + pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.' + '</small></div>';
+    html += '<div class="dname" style="display:flex;align-items:center;">' + iconHtml + '<span>' + WD_NAMES[isoWeekday(d)-1] + '<small>' + pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.' + '</small></span></div>';
     html += '<div class="dvals">';
     if(abw==='urlaub'){ html += '<span class="badge urlaub">Urlaub</span>'; }
     else if(abw==='feiertag'){ html += '<span class="badge feiertag">Feiertag</span>'; }
@@ -1163,6 +1234,7 @@
     html += '<button class="navbtn" id="prevMonth">‹</button>';
     html += '<div class="navlabel">' + MONTH_NAMES[m] + '<small>' + y + '</small></div>';
     html += '<button class="navbtn" id="nextMonth">›</button></div>';
+    html += iconLegendHtml();
     html += '<div class="daylist">';
     for(var day2=1; day2<=dim; day2++){
       var ds2 = y+"-"+pad(m+1)+"-"+pad(day2);
@@ -1287,24 +1359,26 @@
 
     mainEl.innerHTML = html;
 
+    var draftWorkdays = s.workdays.slice();
     document.querySelectorAll('#wdays label').forEach(function(lbl){
       lbl.addEventListener("click", function(e){
         e.preventDefault();
         var day = parseInt(lbl.dataset.day);
-        var idx = state.settings.workdays.indexOf(day);
-        if(idx===-1) state.settings.workdays.push(day); else state.settings.workdays.splice(idx,1);
-        state.settings.workdays.sort();
+        var idx = draftWorkdays.indexOf(day);
+        if(idx===-1) draftWorkdays.push(day); else draftWorkdays.splice(idx,1);
+        draftWorkdays.sort(function(a,b){ return a-b; });
         lbl.classList.toggle("active");
-        lbl.querySelector("input").checked = state.settings.workdays.indexOf(day)!==-1;
+        lbl.querySelector("input").checked = draftWorkdays.indexOf(day)!==-1;
       });
     });
 
     document.getElementById("saveSettings").addEventListener("click", function(){
-      if(state.settings.workdays.length===0){
+      if(draftWorkdays.length===0){
         var closeHint = openSheet('<h2>Hinweis</h2><p>Bitte mindestens einen Arbeitstag auswählen.</p><div class="btnrow"><button class="btn primary" id="okBtn" style="flex:1">Ok</button></div>');
         document.getElementById("okBtn").addEventListener("click", closeHint);
         return;
       }
+      state.settings.workdays = draftWorkdays.slice();
       state.settings.sollWoche = parseFloat(document.getElementById("setSoll").value) || 0;
       state.settings.urlaubstageJahr = parseInt(document.getElementById("setUrlaub").value) || 0;
       saveState(); render();
