@@ -305,7 +305,7 @@
 <script>
 (function(){
   "use strict";
-  var APP_VERSION = "1.11";
+  var APP_VERSION = "1.12";
   var STORAGE_KEY = "zeiterfassung_data_v1";
 
   /* ---------- State ---------- */
@@ -390,13 +390,24 @@
     (t.pausen||[]).forEach(function(p){ sum += (p.endTs-p.startTs)/3600000; });
     return sum;
   }
+  // Ist-Stunden eines Tages, inkl. laufender (noch nicht per "Gehen" abgeschlossener) Schicht/Pause,
+  // damit "Ist" während der Arbeit korrekt live mitzählt statt bis zum Feierabend bei 0 (oder negativ durch
+  // eine schon abgeschlossene Pause) zu verharren
   function istStundenTag(dateStr){
     var t = getTag(dateStr);
-    if(!t || t.abwesenheit) return 0;
+    if(t && t.abwesenheit) return 0;
     var sum = 0;
-    (t.segmente||[]).forEach(function(s){ sum += (s.endTs - s.startTs)/3600000; });
-    sum -= pausenStundenTag(dateStr);
-    sum += (t.manuellStunden||0);
+    if(t){
+      (t.segmente||[]).forEach(function(s){ sum += (s.endTs - s.startTs)/3600000; });
+      sum -= pausenStundenTag(dateStr);
+      sum += (t.manuellStunden||0);
+    }
+    if(state.laufend && state.laufend.datum === dateStr){
+      sum += (Date.now() - state.laufend.startTs) / 3600000;
+    }
+    if(state.laufendPause && state.laufendPause.datum === dateStr){
+      sum -= (Date.now() - state.laufendPause.startTs) / 3600000;
+    }
     return sum;
   }
   // reine Soll-Formel nach Wochentag, ignoriert Abwesenheit (Basis fürs Überstundenkonto)
