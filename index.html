@@ -305,7 +305,7 @@
 <script>
 (function(){
   "use strict";
-  var APP_VERSION = "1.10";
+  var APP_VERSION = "1.11";
   var STORAGE_KEY = "zeiterfassung_data_v1";
 
   /* ---------- State ---------- */
@@ -438,6 +438,14 @@
     var val = (Math.round(h*10)/10).toFixed(1).replace(".", ",");
     return sign + val + " Std.";
   }
+  // Betrag (ohne Vorzeichen) in Std./Min., z.B. 0.7 -> "42 Min.", 8.7 -> "8 Std. 42 Min."
+  function fmtHM(h){
+    var totalMin = Math.round(Math.abs(h) * 60);
+    var hh = Math.floor(totalMin / 60), mm = totalMin % 60;
+    if(hh > 0 && mm > 0) return hh + " Std. " + mm + " Min.";
+    if(hh > 0) return hh + " Std.";
+    return mm + " Min.";
+  }
 
   // Beitrag eines Tages zum Überstundenkonto
   function ueberstundenDeltaTag(dateStr){
@@ -477,6 +485,13 @@
     var saldo = 0;
     getWeekDates(dateStr).forEach(function(ds){ saldo += istStundenTag(ds) - sollStundenTag(ds); });
     return saldo;
+  }
+  // Mini-Kachel für die Feierabend-Karte: "Ü <label>" bei Plus, "Noch <label>" bei Minus, Wert in Std./Min.
+  function ueMiniHtml(saldo, label){
+    var isUeber = saldo >= 0;
+    var cls = isUeber ? "pos" : "warn";
+    var k = (isUeber ? "Ü " : "Noch ") + label;
+    return '<div class="fa-mini"><span class="fa-mini-v ' + cls + '">' + fmtHM(saldo) + '</span><span class="fa-mini-k">' + k + '</span></div>';
   }
 
   /* ---------- Rendering ---------- */
@@ -551,8 +566,8 @@
       var wochenUeber = wochenSaldo(ds);
       html += '<div class="card"><div class="feierabend"><div class="fa-time">' + fmtTime(fa) + ' Uhr</div><div class="fa-lbl">' + (Date.now() > fa ? "Feierabend war um" : "Feierabend ca.") + '</div>';
       html += '<div class="fa-extra">';
-      html += '<div class="fa-mini"><span class="fa-mini-v ' + (ueber>=0?'pos':'warn') + '">' + (ueber>=0?'+':'') + fmtH(ueber) + '</span><span class="fa-mini-k">Ü heute</span></div>';
-      html += '<div class="fa-mini"><span class="fa-mini-v ' + (wochenUeber>=0?'pos':'warn') + '">' + (wochenUeber>=0?'+':'') + fmtH(wochenUeber) + '</span><span class="fa-mini-k">Ü Woche</span></div>';
+      html += ueMiniHtml(ueber, "heute");
+      html += ueMiniHtml(wochenUeber, "Woche");
       html += '</div></div></div>';
     }
 
