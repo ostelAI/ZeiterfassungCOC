@@ -305,7 +305,7 @@
 <script>
 (function(){
   "use strict";
-  var APP_VERSION = "1.12";
+  var APP_VERSION = "1.13";
   var STORAGE_KEY = "zeiterfassung_data_v1";
 
   /* ---------- State ---------- */
@@ -443,13 +443,12 @@
     if(istStundenTag(dateStr) > 0) return { ch: '⚒', cls: 'ico-arbeit' };
     return null;
   }
+  // Std./Min. statt Dezimalstunden, z.B. 8.4 -> "8 Std. 24 Min.", -0.7 -> "-42 Min."
   function fmtH(h){
     var sign = h < 0 ? "-" : "";
-    h = Math.abs(h);
-    var val = (Math.round(h*10)/10).toFixed(1).replace(".", ",");
-    return sign + val + " Std.";
+    return sign + fmtHM(h);
   }
-  // Betrag (ohne Vorzeichen) in Std./Min., z.B. 0.7 -> "42 Min.", 8.7 -> "8 Std. 42 Min."
+  // wie fmtH, aber immer ohne Vorzeichen (Betrag), z.B. 0.7 -> "42 Min.", 8.7 -> "8 Std. 42 Min."
   function fmtHM(h){
     var totalMin = Math.round(Math.abs(h) * 60);
     var hh = Math.floor(totalMin / 60), mm = totalMin % 60;
@@ -467,7 +466,12 @@
   }
   function ueberstundenkontoGesamt(){
     var sum = 0;
-    Object.keys(state.tage).forEach(function(ds){ sum += ueberstundenDeltaTag(ds); });
+    var dates = Object.keys(state.tage);
+    // heute mitzählen, auch wenn dafür noch kein state.tage-Eintrag existiert (z.B. gerade erst "Kommen" gedrückt),
+    // damit das Konto die laufende Schicht/Pause genauso live zeigt wie Heute/Woche
+    var heute = todayStr();
+    if(dates.indexOf(heute) === -1 && (state.laufend || state.laufendPause)) dates.push(heute);
+    dates.forEach(function(ds){ sum += ueberstundenDeltaTag(ds); });
     state.korrekturen.forEach(function(k){ sum += k.betrag; });
     return sum;
   }
