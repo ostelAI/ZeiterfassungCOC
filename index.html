@@ -305,7 +305,7 @@
 <script>
 (function(){
   "use strict";
-  var APP_VERSION = "1.14";
+  var APP_VERSION = "1.15";
   var STORAGE_KEY = "zeiterfassung_data_v1";
 
   /* ---------- State ---------- */
@@ -507,6 +507,16 @@
     getWeekDates(dateStr).forEach(function(ds){ saldo += istStundenTag(ds) - sollStundenTag(ds); });
     return saldo;
   }
+  // Reiner Überstunden-Anteil der Woche: nur die Tage mit Plus werden summiert, Fehlstunden an anderen
+  // Tagen werden NICHT gegengerechnet (anders als wochenSaldo)
+  function wochenUeberstundenAnteil(dateStr){
+    var summe = 0;
+    getWeekDates(dateStr).forEach(function(ds){
+      var delta = istStundenTag(ds) - sollStundenTag(ds);
+      if(delta > 0) summe += delta;
+    });
+    return summe;
+  }
   // Mini-Kachel für die Feierabend-Karte: "Ü <label>" bei Plus, "Noch <label>" bei Minus, Wert in Std./Min.
   function ueMiniHtml(saldo, label){
     var isUeber = saldo >= 0;
@@ -590,7 +600,7 @@
       html += '<div class="fa-extra">';
       html += ueMiniHtml(ueber, "heute");
       html += ueMiniHtml(wochenUeber, "Woche");
-      html += ueMiniHtml(ueberstundenkontoGesamt(), "gesamt");
+      html += '<div class="fa-mini"><span class="fa-mini-v pos">' + fmtHM(wochenUeberstundenAnteil(ds)) + '</span><span class="fa-mini-k">Ü-Anteil</span></div>';
       html += '</div></div></div>';
     }
 
