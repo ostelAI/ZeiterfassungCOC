@@ -153,8 +153,8 @@
   }
   .feierabend .fa-time{ font-family:'JetBrains Mono', monospace; font-size:24px; font-weight:700; color:var(--accent); }
   .feierabend .fa-lbl{ font-size:11px; color:var(--text-muted); margin-top:2px; text-transform:uppercase; letter-spacing:0.5px; }
-  .feierabend .fa-extra{ display:flex; justify-content:center; gap:26px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
-  .feierabend .fa-mini{ display:flex; flex-direction:column; align-items:center; }
+  .feierabend .fa-extra{ display:flex; justify-content:space-between; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); flex-wrap:wrap; }
+  .feierabend .fa-mini{ display:flex; flex-direction:column; align-items:center; flex:1; min-width:78px; }
   .feierabend .fa-mini-v{ font-family:'JetBrains Mono', monospace; font-size:14px; font-weight:600; }
   .feierabend .fa-mini-v.pos{ color:var(--positive); }
   .feierabend .fa-mini-v.warn{ color:var(--accent); }
@@ -305,7 +305,7 @@
 <script>
 (function(){
   "use strict";
-  var APP_VERSION = "1.13";
+  var APP_VERSION = "1.14";
   var STORAGE_KEY = "zeiterfassung_data_v1";
 
   /* ---------- State ---------- */
@@ -476,13 +476,19 @@
     return sum;
   }
 
-  // voraussichtliches Feierabend-Zeitpunkt (Timestamp) für einen Tag mit Stempeldaten
-  function feierabendTs(dateStr){
+  // Feierabend-Info für einen Tag: { ts, echt } — echt=true wenn der Tag abgeschlossen ist
+  // (dann ts = tatsächliches, spätestes Segment-Ende), sonst echt=false und ts = Hochrechnung
+  function feierabendInfo(dateStr){
     var t = getTag(dateStr);
     if(t && t.abwesenheit) return null;
+    var istAktiv = !!(state.laufend && state.laufend.datum === dateStr);
+    if(!istAktiv && t && t.segmente && t.segmente.length){
+      var ends = t.segmente.map(function(s){ return s.endTs; });
+      return { ts: Math.max.apply(null, ends), echt: true };
+    }
     var starts = [];
     (t ? t.segmente||[] : []).forEach(function(s){ starts.push(s.startTs); });
-    if(state.laufend && state.laufend.datum === dateStr) starts.push(state.laufend.startTs);
+    if(istAktiv) starts.push(state.laufend.startTs);
     if(starts.length===0) return null;
     var erster = Math.min.apply(null, starts);
     // Feierabend-Ziel: immer die durchschnittliche Tagesarbeitszeit (Sollstunden/Woche ÷ Arbeitstage),
@@ -493,7 +499,7 @@
     if(state.laufendPause && state.laufendPause.datum === dateStr){
       pausenMs += (Date.now() - state.laufendPause.startTs);
     }
-    return erster + sollMs + pausenMs;
+    return { ts: erster + sollMs + pausenMs, echt: false };
   }
   // Über-/Fehlstunden-Saldo der Woche, die den angegebenen Tag enthält (Ist minus Soll über Mo–So)
   function wochenSaldo(dateStr){
@@ -576,13 +582,15 @@
     }
     html += '</div></div>';
 
-    var fa = feierabendTs(ds);
-    if(fa){
+    var faInfo = feierabendInfo(ds);
+    if(faInfo){
       var wochenUeber = wochenSaldo(ds);
-      html += '<div class="card"><div class="feierabend"><div class="fa-time">' + fmtTime(fa) + ' Uhr</div><div class="fa-lbl">' + (Date.now() > fa ? "Feierabend war um" : "Feierabend ca.") + '</div>';
+      var faLbl = faInfo.echt ? "Feierabend war um" : (Date.now() > faInfo.ts ? "Feierabend war um" : "Feierabend ca.");
+      html += '<div class="card"><div class="feierabend"><div class="fa-time">' + fmtTime(faInfo.ts) + ' Uhr</div><div class="fa-lbl">' + faLbl + '</div>';
       html += '<div class="fa-extra">';
       html += ueMiniHtml(ueber, "heute");
       html += ueMiniHtml(wochenUeber, "Woche");
+      html += ueMiniHtml(ueberstundenkontoGesamt(), "gesamt");
       html += '</div></div></div>';
     }
 
