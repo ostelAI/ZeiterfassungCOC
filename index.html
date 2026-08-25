@@ -153,12 +153,12 @@
   }
   .feierabend .fa-time{ font-family:'JetBrains Mono', monospace; font-size:24px; font-weight:700; color:var(--accent); }
   .feierabend .fa-lbl{ font-size:11px; color:var(--text-muted); margin-top:2px; text-transform:uppercase; letter-spacing:0.5px; }
-  .feierabend .fa-extra{ display:flex; justify-content:space-between; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); flex-wrap:wrap; }
-  .feierabend .fa-mini{ display:flex; flex-direction:column; align-items:center; flex:1; min-width:78px; }
+  .feierabend .fa-extra{ display:flex; justify-content:space-between; gap:4px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); flex-wrap:wrap; }
+  .feierabend .fa-mini{ display:flex; flex-direction:column; align-items:center; flex:1; min-width:70px; max-width:33%; }
   .feierabend .fa-mini-v{ font-family:'JetBrains Mono', monospace; font-size:14px; font-weight:600; }
   .feierabend .fa-mini-v.pos{ color:var(--positive); }
   .feierabend .fa-mini-v.warn{ color:var(--accent); }
-  .feierabend .fa-mini-k{ font-size:10px; color:var(--text-muted); margin-top:2px; text-transform:uppercase; letter-spacing:0.4px; }
+  .feierabend .fa-mini-k{ font-size:9.5px; color:var(--text-muted); margin-top:2px; text-transform:uppercase; letter-spacing:0.2px; word-break:break-word; text-align:center; }
 
   .pillrow{ display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:6px; }
   .pill{
@@ -305,7 +305,7 @@
 <script>
 (function(){
   "use strict";
-  var APP_VERSION = "1.15";
+  var APP_VERSION = "1.16";
   var STORAGE_KEY = "zeiterfassung_data_v1";
 
   /* ---------- State ---------- */
@@ -507,16 +507,6 @@
     getWeekDates(dateStr).forEach(function(ds){ saldo += istStundenTag(ds) - sollStundenTag(ds); });
     return saldo;
   }
-  // Reiner Überstunden-Anteil der Woche: nur die Tage mit Plus werden summiert, Fehlstunden an anderen
-  // Tagen werden NICHT gegengerechnet (anders als wochenSaldo)
-  function wochenUeberstundenAnteil(dateStr){
-    var summe = 0;
-    getWeekDates(dateStr).forEach(function(ds){
-      var delta = istStundenTag(ds) - sollStundenTag(ds);
-      if(delta > 0) summe += delta;
-    });
-    return summe;
-  }
   // Mini-Kachel für die Feierabend-Karte: "Ü <label>" bei Plus, "Noch <label>" bei Minus, Wert in Std./Min.
   function ueMiniHtml(saldo, label){
     var isUeber = saldo >= 0;
@@ -600,7 +590,7 @@
       html += '<div class="fa-extra">';
       html += ueMiniHtml(ueber, "heute");
       html += ueMiniHtml(wochenUeber, "Woche");
-      html += '<div class="fa-mini"><span class="fa-mini-v pos">' + fmtHM(wochenUeberstundenAnteil(ds)) + '</span><span class="fa-mini-k">Ü-Anteil</span></div>';
+      html += '<div class="fa-mini"><span class="fa-mini-v ' + (wochenUeber>=0?'pos':'warn') + '">' + (wochenUeber>=0?'+':'') + fmtH(wochenUeber) + '</span><span class="fa-mini-k">Überstundenanteil</span></div>';
       html += '</div></div></div>';
     }
 
