@@ -305,7 +305,7 @@
 <script>
 (function(){
   "use strict";
-  var APP_VERSION = "1.16";
+  var APP_VERSION = "1.17";
   var STORAGE_KEY = "zeiterfassung_data_v1";
 
   /* ---------- State ---------- */
@@ -339,6 +339,7 @@
           delete t.urlaub;
         }
         if(t && !t.pausen) t.pausen = [];
+        if(t && typeof t.marker === "undefined") t.marker = "";
       });
       return parsed;
     }catch(e){
@@ -380,7 +381,7 @@
   /* ---------- Data access ---------- */
   function getTag(dateStr){ return state.tage[dateStr] || null; }
   function ensureTag(dateStr){
-    if(!state.tage[dateStr]) state.tage[dateStr] = { segmente: [], pausen: [], manuellStunden: 0, abwesenheit: null };
+    if(!state.tage[dateStr]) state.tage[dateStr] = { segmente: [], pausen: [], manuellStunden: 0, abwesenheit: null, marker: "" };
     return state.tage[dateStr];
   }
   function pausenStundenTag(dateStr){
@@ -619,6 +620,8 @@
       html += '<button class="ghostbtn" id="addManualSeg">+ Arbeitszeit manuell eintragen</button>';
       html += '<button class="ghostbtn" id="addManualPause">+ Pause manuell eintragen</button>';
       html += '<button class="ghostbtn" id="addManualHours">+ Zusätzliche Stunden (Korrektur)</button>';
+      html += '<label class="field">Markierung (frei, z.B. Symbol oder Text)</label>';
+      html += '<input type="text" id="dayMarker" maxlength="24" placeholder="z.B. ⭐" value="' + escapeHtml((t && t.marker) || "") + '">';
       html += '</div>';
     }
 
@@ -647,6 +650,11 @@
     if(fixBtn) fixBtn.addEventListener("click", function(){ openFixStartModal(); });
     var jobBtn = document.getElementById("jobSelectBtn");
     if(jobBtn) jobBtn.addEventListener("click", openJobPicker);
+    var markerEl = document.getElementById("dayMarker");
+    if(markerEl) markerEl.addEventListener("blur", function(){
+      ensureTag(ds).marker = markerEl.value;
+      saveState();
+    });
   }
 
   function renderPunchRow(ds){
@@ -1193,8 +1201,9 @@
     var abw = t ? t.abwesenheit : null;
     var icon = dayIconInfo(ds);
     var iconHtml = icon ? '<span class="dicon ' + icon.cls + '">' + icon.ch + '</span>' : '<span class="dicon"></span>';
+    var markerHtml = (t && t.marker) ? ' <span style="color:var(--text-muted);">' + escapeHtml(t.marker) + '</span>' : '';
     var html = '<div class="dayitem ' + (isToday?'today':'') + '" data-date="' + ds + '">';
-    html += '<div class="dname" style="display:flex;align-items:center;">' + iconHtml + '<span>' + WD_NAMES[isoWeekday(d)-1] + '<small>' + pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.' + '</small></span></div>';
+    html += '<div class="dname" style="display:flex;align-items:center;">' + iconHtml + '<span>' + WD_NAMES[isoWeekday(d)-1] + markerHtml + '<small>' + pad(d.getDate())+'.'+pad(d.getMonth()+1)+'.' + '</small></span></div>';
     html += '<div class="dvals">';
     if(abw==='urlaub'){ html += '<span class="badge urlaub">Urlaub</span>'; }
     else if(abw==='feiertag'){ html += '<span class="badge feiertag">Feiertag</span>'; }
@@ -1236,6 +1245,8 @@
       var soll = sollStundenTag(ds), ist = istStundenTag(ds), ueber = ist-soll;
       html += '<div class="statgrid three" style="margin-top:14px;"><div class="box"><div class="v">' + fmtH(ist) + '</div><div class="k">Ist</div></div><div class="box"><div class="v">' + fmtH(soll) + '</div><div class="k">Soll</div></div><div class="box"><div class="v ' + (ueber>=0?'pos':'warn') + '">' + fmtH(ueber) + '</div><div class="k">Über/Fehl</div></div></div>';
     }
+    html += '<label class="field">Markierung (frei, z.B. Symbol oder Text)</label>';
+    html += '<input type="text" id="modMarker" maxlength="24" placeholder="z.B. ⭐" value="' + escapeHtml((t && t.marker) || "") + '">';
     return html;
   }
 
@@ -1272,6 +1283,11 @@
     if(msP) msP.addEventListener("click", function(){ openSegModal(ds,"pause", refresh); });
     var msH = sheet.body.querySelector("#modAddHours");
     if(msH) msH.addEventListener("click", function(){ openManualHoursModal(ds, refresh); });
+    var mMarker = sheet.body.querySelector("#modMarker");
+    if(mMarker) mMarker.addEventListener("blur", function(){
+      ensureTag(ds).marker = mMarker.value;
+      saveState();
+    });
   }
 
   /* ----- Monat ----- */
