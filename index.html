@@ -112,22 +112,27 @@
   }
   .jobselect .jdot{ width:9px; height:9px; border-radius:50%; background:var(--accent); flex-shrink:0; }
   .gauge{ width:100%; }
-  .gauge-row{ display:flex; align-items:center; gap:10px; width:100%; }
-  .gauge-side{ text-align:center; min-width:50px; flex-shrink:0; }
+  .gauge-row{ display:flex; align-items:center; gap:6px; width:100%; }
+  .gauge-side{ text-align:center; min-width:46px; flex-shrink:0; }
   .gauge-side .gs-lbl{ font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-muted); }
-  .gauge-side .gs-time{ font-family:'JetBrains Mono', monospace; font-size:16px; font-weight:700; color:var(--text); margin-top:3px; }
-  .gauge-mid{ flex:1; }
-  .gauge-track{
-    position:relative; height:16px; border-radius:8px; background:var(--panel2); border:1px solid var(--border);
-    overflow:hidden; display:flex; box-shadow:inset 0 2px 4px rgba(0,0,0,0.4);
+  .gauge-side .gs-time{ font-family:'JetBrains Mono', monospace; font-size:15px; font-weight:700; color:var(--text); margin-top:3px; }
+  .gauge-mid{ flex:1; position:relative; }
+  .gauge-svg{ width:100%; height:auto; display:block; overflow:visible; }
+  .gauge-track-arc{ fill:none; stroke:var(--panel2); stroke-width:16; stroke-linecap:round; }
+  .gauge-fill-arc{ fill:none; stroke:var(--accent); stroke-width:16; stroke-linecap:round; filter:drop-shadow(0 0 4px rgba(226,54,54,0.5)); }
+  .gauge-boost-arc{
+    fill:none; stroke:#E8B23D; stroke-width:16; stroke-linecap:round;
+    filter:drop-shadow(0 0 6px rgba(232,178,61,0.8));
   }
-  .gauge-fill{ height:100%; background:linear-gradient(90deg, var(--accent-dim), var(--accent)); transition:width .3s; }
-  .gauge-boost{
-    height:100%; background:repeating-linear-gradient(45deg, #E8B23D 0 6px, #c98f22 6px 12px);
-    box-shadow:0 0 10px rgba(232,178,61,0.7); transition:width .3s;
+  .gauge-tick{ stroke:var(--text-muted); stroke-width:2; }
+  .gauge-marks{ display:flex; justify-content:space-between; font-size:10px; color:var(--text-muted); margin-top:2px; font-family:'JetBrains Mono', monospace; padding:0 4px; }
+  .gauge-center{
+    position:absolute; left:50%; top:66%; transform:translate(-50%,-50%);
+    text-align:center; width:78%; pointer-events:none;
   }
-  .gauge-marks{ display:flex; justify-content:space-between; font-size:10px; color:var(--text-muted); margin-top:4px; font-family:'JetBrains Mono', monospace; }
-  .gauge-status{ text-align:center; margin-top:10px; font-size:12px; color:var(--text-muted); letter-spacing:0.3px; min-height:16px; }
+  .gauge-center .gc-lbl{ font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); }
+  .gauge-center .gc-val{ font-family:'JetBrains Mono', monospace; font-size:20px; font-weight:700; color:var(--text); margin-top:2px; }
+  .gauge-status{ text-align:center; margin-top:6px; font-size:12px; color:var(--text-muted); letter-spacing:0.3px; min-height:16px; }
   .gauge-status .boost-tag{ color:#E8B23D; font-weight:700; }
   .punchrow{ display:flex; gap:10px; width:100%; margin-top:18px; }
   .punchbtn{
@@ -311,7 +316,7 @@
 <script>
 (function(){
   "use strict";
-  var APP_VERSION = "1.19";
+  var APP_VERSION = "1.20";
   var MARKER_ICON = "⚠️";
   var STORAGE_KEY = "zeiterfassung_data_v1";
 
@@ -484,6 +489,25 @@
     return sum;
   }
 
+  /* ---------- Halbkreis-Tacho (Geometrie) ---------- */
+  var GAUGE_CX = 110, GAUGE_CY = 105, GAUGE_R = 90;
+  // Punkt auf dem Halbkreisbogen für einen Fortschritt frac (0 = linkes Ende, 1 = rechtes Ende, über oben)
+  function gaugePoint(frac){
+    var angle = (180 - frac*180) * Math.PI/180;
+    return { x: GAUGE_CX + GAUGE_R*Math.cos(angle), y: GAUGE_CY - GAUGE_R*Math.sin(angle) };
+  }
+  function gaugeArcD(f1, f2){
+    var p1 = gaugePoint(f1), p2 = gaugePoint(f2);
+    return 'M ' + p1.x.toFixed(2) + ' ' + p1.y.toFixed(2) + ' A ' + GAUGE_R + ' ' + GAUGE_R + ' 0 0 1 ' + p2.x.toFixed(2) + ' ' + p2.y.toFixed(2);
+  }
+  function gaugeTickD(frac, inset, outset){
+    var angle = (180 - frac*180) * Math.PI/180;
+    var r1 = GAUGE_R - inset, r2 = GAUGE_R + outset;
+    var p1 = { x: GAUGE_CX + r1*Math.cos(angle), y: GAUGE_CY - r1*Math.sin(angle) };
+    var p2 = { x: GAUGE_CX + r2*Math.cos(angle), y: GAUGE_CY - r2*Math.sin(angle) };
+    return 'M ' + p1.x.toFixed(2) + ' ' + p1.y.toFixed(2) + ' L ' + p2.x.toFixed(2) + ' ' + p2.y.toFixed(2);
+  }
+
   // durchschnittliche Tagesarbeitszeit (Sollstunden/Woche ÷ Arbeitstage), unabhängig vom Wochentag
   function sollProTagAvg(){
     return state.settings.sollWoche / (state.settings.workdays.length || 1);
@@ -593,20 +617,30 @@
     }
 
     var boostHours = Math.max(0, ist - sollProTag);
-    var fillFrac = sollProTag > 0 ? Math.min(ist / sollProTag, 1) : (ist > 0 ? 1 : 0);
-    var boostFrac = sollProTag > 0 ? Math.min(boostHours / sollProTag, 1) : 0;
-    var fillPct = Math.max(0, Math.round(fillFrac * 1000) / 10);
-    var boostPct = Math.max(0, Math.round(boostFrac * 1000) / 10);
+    var maxScale = sollProTag > 0 ? sollProTag * 1.5 : 1;
+    var sollFrac = sollProTag > 0 ? sollProTag / maxScale : 0.6667;
+    var fillFrac = maxScale > 0 ? Math.min(ist, sollProTag) / maxScale : 0;
+    var boostEndFrac = maxScale > 0 ? Math.min(ist, maxScale) / maxScale : 0;
 
-    var gaugeStatusHtml = "";
+    var svg = '<svg class="gauge-svg" viewBox="0 0 220 118">';
+    svg += '<path class="gauge-track-arc" d="' + gaugeArcD(0,1) + '"/>';
+    if(fillFrac > 0.002) svg += '<path class="gauge-fill-arc" d="' + gaugeArcD(0, fillFrac) + '"/>';
+    if(boostEndFrac > sollFrac + 0.002) svg += '<path class="gauge-boost-arc" d="' + gaugeArcD(sollFrac, boostEndFrac) + '"/>';
+    svg += '<path class="gauge-tick" d="' + gaugeTickD(sollFrac, 11, 11) + '"/>';
+    svg += '</svg>';
+
+    var centerHtml = "";
     if(state.laufendPause){
       var vorherigeMs = pausenStundenTag(state.laufendPause.datum) * 3600000;
       var totalMs = vorherigeMs + (Date.now() - state.laufendPause.startTs);
       var totalS = Math.floor(totalMs/1000);
       var hh0 = Math.floor(totalS/3600), mm0 = pad(Math.floor((totalS%3600)/60)), ss0 = pad(totalS%60);
       var pauseDisplay = (hh0>0 ? hh0+":" : "") + mm0 + ":" + ss0;
-      gaugeStatusHtml = '⏸ Pause läuft · <span id="gaugePauseTime">' + pauseDisplay + '</span>';
-    } else if(boostHours > 0){
+      centerHtml = '<div class="gc-lbl">⏸ Pause</div><div class="gc-val" id="gaugePauseTime">' + pauseDisplay + '</div>';
+    }
+
+    var gaugeStatusHtml = "";
+    if(!state.laufendPause && boostHours > 0){
       gaugeStatusHtml = '<span class="boost-tag">🚀 Boost +' + fmtHM(boostHours) + '</span>';
     }
 
@@ -615,7 +649,7 @@
     html += '<button class="jobselect" id="jobSelectBtn"><span class="jdot"></span>' + (state.aktiverJob ? escapeHtml(state.aktiverJob) : "Kein Job gewählt") + '</button>';
     html += '<div class="gauge"><div class="gauge-row">';
     html += '<div class="gauge-side"><div class="gs-lbl">Start</div><div class="gs-time">' + (startTs ? fmtTime(startTs) : "--:--") + '</div></div>';
-    html += '<div class="gauge-mid"><div class="gauge-track"><div class="gauge-fill" style="width:' + fillPct + '%;"></div><div class="gauge-boost" style="width:' + boostPct + '%;"></div></div>';
+    html += '<div class="gauge-mid">' + svg + '<div class="gauge-center">' + centerHtml + '</div>';
     html += '<div class="gauge-marks"><span>0</span><span>' + fmtH(sollProTag) + '</span></div></div>';
     html += '<div class="gauge-side"><div class="gs-lbl">Stop</div><div class="gs-time">' + (stopTs ? fmtTime(stopTs) : "--:--") + '</div></div>';
     html += '</div><div class="gauge-status">' + gaugeStatusHtml + '</div></div>';
