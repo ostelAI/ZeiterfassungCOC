@@ -162,9 +162,7 @@
     margin-top:12px; background:var(--panel2); border:1px solid var(--border); border-radius:10px;
     padding:12px; text-align:center;
   }
-  .feierabend .fa-time{ font-family:'JetBrains Mono', monospace; font-size:24px; font-weight:700; color:var(--accent); }
-  .feierabend .fa-lbl{ font-size:11px; color:var(--text-muted); margin-top:2px; text-transform:uppercase; letter-spacing:0.5px; }
-  .feierabend .fa-extra{ display:flex; justify-content:space-between; gap:4px; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); flex-wrap:wrap; }
+  .feierabend .fa-extra{ display:flex; justify-content:space-between; gap:4px; flex-wrap:wrap; }
   .feierabend .fa-mini{ display:flex; flex-direction:column; align-items:center; flex:1; min-width:70px; max-width:33%; }
   .feierabend .fa-mini-v{ font-family:'JetBrains Mono', monospace; font-size:14px; font-weight:600; }
   .feierabend .fa-mini-v.pos{ color:var(--positive); }
@@ -316,7 +314,7 @@
 <script>
 (function(){
   "use strict";
-  var APP_VERSION = "1.20";
+  var APP_VERSION = "1.21";
   var MARKER_ICON = "⚠️";
   var STORAGE_KEY = "zeiterfassung_data_v1";
 
@@ -512,30 +510,6 @@
   function sollProTagAvg(){
     return state.settings.sollWoche / (state.settings.workdays.length || 1);
   }
-  // Feierabend-Info für einen Tag: { ts, echt } — echt=true wenn der Tag abgeschlossen ist
-  // (dann ts = tatsächliches, spätestes Segment-Ende), sonst echt=false und ts = Hochrechnung
-  function feierabendInfo(dateStr){
-    var t = getTag(dateStr);
-    if(t && t.abwesenheit) return null;
-    var istAktiv = !!(state.laufend && state.laufend.datum === dateStr);
-    if(!istAktiv && t && t.segmente && t.segmente.length){
-      var ends = t.segmente.map(function(s){ return s.endTs; });
-      return { ts: Math.max.apply(null, ends), echt: true };
-    }
-    var starts = [];
-    (t ? t.segmente||[] : []).forEach(function(s){ starts.push(s.startTs); });
-    if(istAktiv) starts.push(state.laufend.startTs);
-    if(starts.length===0) return null;
-    var erster = Math.min.apply(null, starts);
-    // Feierabend-Ziel: immer die durchschnittliche Tagesarbeitszeit, unabhängig davon, ob der
-    // heutige Wochentag als Arbeitstag markiert ist (z.B. spontane Zusatzschicht)
-    var sollMs = sollProTagAvg() * 3600000;
-    var pausenMs = pausenStundenTag(dateStr) * 3600000;
-    if(state.laufendPause && state.laufendPause.datum === dateStr){
-      pausenMs += (Date.now() - state.laufendPause.startTs);
-    }
-    return { ts: erster + sollMs + pausenMs, echt: false };
-  }
   // Über-/Fehlstunden-Saldo der Woche, die den angegebenen Tag enthält (Ist minus Soll über Mo–So)
   function wochenSaldo(dateStr){
     var saldo = 0;
@@ -556,10 +530,10 @@
     return saldo;
   }
   // Mini-Kachel für die Feierabend-Karte: "Ü <label>" bei Plus, "Noch <label>" bei Minus, Wert in Std./Min.
-  function ueMiniHtml(saldo, label){
+  function ueMiniHtml(saldo, posLabel, negLabel){
     var isUeber = saldo >= 0;
     var cls = isUeber ? "pos" : "warn";
-    var k = (isUeber ? "Ü " : "Noch ") + label;
+    var k = isUeber ? posLabel : negLabel;
     return '<div class="fa-mini"><span class="fa-mini-v ' + cls + '">' + fmtHM(saldo) + '</span><span class="fa-mini-k">' + k + '</span></div>';
   }
 
@@ -651,7 +625,7 @@
     html += '<div class="gauge-side"><div class="gs-lbl">Start</div><div class="gs-time">' + (startTs ? fmtTime(startTs) : "--:--") + '</div></div>';
     html += '<div class="gauge-mid">' + svg + '<div class="gauge-center">' + centerHtml + '</div>';
     html += '<div class="gauge-marks"><span>0</span><span>' + fmtH(sollProTag) + '</span></div></div>';
-    html += '<div class="gauge-side"><div class="gs-lbl">Stop</div><div class="gs-time">' + (stopTs ? fmtTime(stopTs) : "--:--") + '</div></div>';
+    html += '<div class="gauge-side"><div class="gs-lbl">Ende</div><div class="gs-time">' + (stopTs ? fmtTime(stopTs) : "--:--") + '</div></div>';
     html += '</div><div class="gauge-status">' + gaugeStatusHtml + '</div></div>';
     html += '<div class="punchrow" id="punchRow"></div>';
     var laufendAktiv = !!(state.laufend || state.laufendPause);
@@ -659,19 +633,6 @@
       html += '<button class="ghostbtn" id="fixStartBtn" style="margin-top:10px;">Startzeit korrigieren</button>';
     }
     html += '</div></div>';
-
-    var faInfo = feierabendInfo(ds);
-    if(faInfo){
-      var wochenUeber = wochenSaldo(ds);
-      var faLbl = faInfo.echt ? "Feierabend war um" : (Date.now() > faInfo.ts ? "Feierabend war um" : "Feierabend ca.");
-      html += '<div class="card"><div class="feierabend"><div class="fa-time">' + fmtTime(faInfo.ts) + ' Uhr</div><div class="fa-lbl">' + faLbl + '</div>';
-      html += '<div class="fa-extra">';
-      html += ueMiniHtml(ueber, "heute");
-      html += ueMiniHtml(wochenUeber, "Woche");
-      var ueAnteil = ueberstundenanteilWoche(ds);
-      html += '<div class="fa-mini"><span class="fa-mini-v ' + (ueAnteil>=0?'pos':'warn') + '">' + (ueAnteil>=0?'+':'') + fmtH(ueAnteil) + '</span><span class="fa-mini-k">Überstundenanteil</span></div>';
-      html += '</div></div></div>';
-    }
 
     html += '<div class="card"><h2 style="margin-bottom:8px;">Heute</h2>';
     html += '<div class="pillrow">';
@@ -686,6 +647,13 @@
       html += '<div class="box"><div class="v">' + fmtH(soll) + '</div><div class="k">Soll</div></div>';
       html += '<div class="box"><div class="v ' + (ueber>=0?'pos':'warn') + '">' + fmtH(ueber) + '</div><div class="k">Über/Fehl</div></div>';
       html += '</div>';
+      var wochenUeber = wochenSaldo(ds);
+      var ueAnteil = ueberstundenanteilWoche(ds);
+      html += '<div class="feierabend" style="margin-top:12px;"><div class="fa-extra">';
+      html += ueMiniHtml(ueber, "Überstunden heute", "Noch heute");
+      html += ueMiniHtml(wochenUeber, "Überstunden Woche", "Stunden noch pro Woche");
+      html += '<div class="fa-mini"><span class="fa-mini-v ' + (ueAnteil>=0?'pos':'warn') + '">' + (ueAnteil>=0?'+':'') + fmtH(ueAnteil) + '</span><span class="fa-mini-k">Überstundenanteil in der Woche</span></div>';
+      html += '</div></div>';
     } else {
       var abwText = abwesenheit==='urlaub' ? "Urlaubstag – kein Soll heute." : abwesenheit==='feiertag' ? "Gesetzlicher Feiertag – kein Soll heute." : "Freier Tag durch Überstundenabbau.";
       html += '<div class="empty" style="padding-top:12px;">' + abwText + '</div>';
@@ -1438,16 +1406,6 @@
     html += '<button class="navbtn" id="prevYear">‹</button>';
     html += '<div class="navlabel">' + y + '</div>';
     html += '<button class="navbtn" id="nextYear">›</button></div>';
-    html += '<div class="daylist">';
-    monthRows.forEach(function(r){
-      var d2 = r.ist - r.soll;
-      html += '<div class="dayitem" data-month="' + r.m + '">';
-      html += '<div class="dname">' + MONTH_NAMES[r.m] + '</div>';
-      html += '<div class="dvals">' + fmtH(r.ist) + ' / ' + fmtH(r.soll) + '<span class="delta ' + (d2>=0?'pos':'warn') + '">' + (d2>=0?'+':'') + fmtH(d2) + '</span></div></div>';
-    });
-    html += '</div></div>';
-
-    html += '<div class="card"><h2>Jahr ' + y + '</h2>';
     html += '<div class="bigstat"><div><div class="num ' + (rest<=0?'pos':'warn') + '">' + fmtH(Math.abs(rest)) + '</div><div class="lbl">' + (rest<0 ? "Überstunden" : "noch zu bringen") + '</div></div></div>';
     html += '<div class="statgrid"><div class="box"><div class="v">' + fmtH(soll) + '</div><div class="k">Soll Jahr</div></div>';
     html += '<div class="box"><div class="v">' + fmtH(ist) + '</div><div class="k">Ist Jahr</div></div></div>';
@@ -1456,6 +1414,15 @@
     html += '<div class="statgrid"><div class="box"><div class="v">' + ueberTage + '</div><div class="k">Ü-Tage genommen</div></div>';
     html += '<div class="box"><div class="v">' + feiertagTage + '</div><div class="k">Feiertage</div></div></div>';
     html += '</div>';
+
+    html += '<div class="card"><div class="daylist">';
+    monthRows.forEach(function(r){
+      var d2 = r.ist - r.soll;
+      html += '<div class="dayitem" data-month="' + r.m + '">';
+      html += '<div class="dname">' + MONTH_NAMES[r.m] + '</div>';
+      html += '<div class="dvals">' + fmtH(r.ist) + ' / ' + fmtH(r.soll) + '<span class="delta ' + (d2>=0?'pos':'warn') + '">' + (d2>=0?'+':'') + fmtH(d2) + '</span></div></div>';
+    });
+    html += '</div></div>';
 
     mainEl.innerHTML = html;
     document.getElementById("prevYear").addEventListener("click", function(){ state.ui.yearAnchor--; saveState(); render(); });
