@@ -125,7 +125,9 @@
     filter:drop-shadow(0 0 6px rgba(232,178,61,0.8));
   }
   .gauge-tick{ stroke:var(--text-muted); stroke-width:2; }
-  .gauge-marks{ display:flex; justify-content:space-between; font-size:10px; color:var(--text-muted); margin-top:2px; font-family:'JetBrains Mono', monospace; padding:0 4px; }
+  .gauge-label{ font-family:'JetBrains Mono', monospace; font-size:11px; fill:var(--text-muted); }
+  .gauge-label-soll{ fill:var(--text); font-weight:700; }
+  .gauge-label-total{ fill:var(--accent); font-weight:700; }
   .gauge-center{
     position:absolute; left:50%; top:66%; transform:translate(-50%,-50%);
     text-align:center; width:78%; pointer-events:none;
@@ -314,7 +316,7 @@
 <script>
 (function(){
   "use strict";
-  var APP_VERSION = "1.21";
+  var APP_VERSION = "1.22";
   var MARKER_ICON = "⚠️";
   var STORAGE_KEY = "zeiterfassung_data_v1";
 
@@ -505,6 +507,14 @@
     var p2 = { x: GAUGE_CX + r2*Math.cos(angle), y: GAUGE_CY - r2*Math.sin(angle) };
     return 'M ' + p1.x.toFixed(2) + ' ' + p1.y.toFixed(2) + ' L ' + p2.x.toFixed(2) + ' ' + p2.y.toFixed(2);
   }
+  // Beschriftung an einer Bogenposition frac, etwas außerhalb des Bogens platziert
+  function gaugeLabelSvg(frac, extraR, text, cls){
+    var angle = (180 - frac*180) * Math.PI/180;
+    var r = GAUGE_R + extraR;
+    var x = GAUGE_CX + r*Math.cos(angle), y = GAUGE_CY - r*Math.sin(angle);
+    var anchor = frac < 0.15 ? 'start' : (frac > 0.85 ? 'end' : 'middle');
+    return '<text class="' + cls + '" x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" text-anchor="' + anchor + '">' + text + '</text>';
+  }
 
   // durchschnittliche Tagesarbeitszeit (Sollstunden/Woche ÷ Arbeitstage), unabhängig vom Wochentag
   function sollProTagAvg(){
@@ -596,11 +606,15 @@
     var fillFrac = maxScale > 0 ? Math.min(ist, sollProTag) / maxScale : 0;
     var boostEndFrac = maxScale > 0 ? Math.min(ist, maxScale) / maxScale : 0;
 
-    var svg = '<svg class="gauge-svg" viewBox="0 0 220 118">';
+    var svg = '<svg class="gauge-svg" viewBox="0 0 220 130">';
     svg += '<path class="gauge-track-arc" d="' + gaugeArcD(0,1) + '"/>';
     if(fillFrac > 0.002) svg += '<path class="gauge-fill-arc" d="' + gaugeArcD(0, fillFrac) + '"/>';
     if(boostEndFrac > sollFrac + 0.002) svg += '<path class="gauge-boost-arc" d="' + gaugeArcD(sollFrac, boostEndFrac) + '"/>';
     svg += '<path class="gauge-tick" d="' + gaugeTickD(sollFrac, 11, 11) + '"/>';
+    // Beschriftung: "0" links, Soll-Wert genau am Strich, Gesamtstundenzahl (live) rechts am Bogenende
+    svg += '<text class="gauge-label" x="' + (GAUGE_CX-GAUGE_R-4) + '" y="' + (GAUGE_CY+16) + '" text-anchor="start">0</text>';
+    svg += gaugeLabelSvg(sollFrac, 20, fmtH(sollProTag), 'gauge-label gauge-label-soll');
+    svg += '<text class="gauge-label gauge-label-total" x="' + (GAUGE_CX+GAUGE_R+4) + '" y="' + (GAUGE_CY+16) + '" text-anchor="end">' + fmtH(ist) + '</text>';
     svg += '</svg>';
 
     var centerHtml = "";
@@ -623,8 +637,7 @@
     html += '<button class="jobselect" id="jobSelectBtn"><span class="jdot"></span>' + (state.aktiverJob ? escapeHtml(state.aktiverJob) : "Kein Job gewählt") + '</button>';
     html += '<div class="gauge"><div class="gauge-row">';
     html += '<div class="gauge-side"><div class="gs-lbl">Start</div><div class="gs-time">' + (startTs ? fmtTime(startTs) : "--:--") + '</div></div>';
-    html += '<div class="gauge-mid">' + svg + '<div class="gauge-center">' + centerHtml + '</div>';
-    html += '<div class="gauge-marks"><span>0</span><span>' + fmtH(sollProTag) + '</span></div></div>';
+    html += '<div class="gauge-mid">' + svg + '<div class="gauge-center">' + centerHtml + '</div></div>';
     html += '<div class="gauge-side"><div class="gs-lbl">Ende</div><div class="gs-time">' + (stopTs ? fmtTime(stopTs) : "--:--") + '</div></div>';
     html += '</div><div class="gauge-status">' + gaugeStatusHtml + '</div></div>';
     html += '<div class="punchrow" id="punchRow"></div>';
