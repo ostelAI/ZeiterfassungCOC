@@ -99,8 +99,8 @@
     width:38px;height:38px; border-radius:10px; font-size:18px;
     display:flex;align-items:center;justify-content:center;
   }
-  .navrow .navlabel{ font-family:'JetBrains Mono', monospace; font-size:14px; text-align:center; color:var(--text); }
-  .navrow .navlabel small{ display:block; color:var(--text-muted); font-size:11px; margin-top:2px; }
+  .navrow .navlabel{ font-family:'JetBrains Mono', monospace; font-size:17px; text-align:center; color:var(--text); }
+  .navrow .navlabel small{ display:block; color:var(--text-muted); font-size:13px; margin-top:2px; }
 
   /* Stempeluhr */
   .clockwrap{ display:flex; flex-direction:column; align-items:center; padding:8px 0 4px; }
@@ -111,18 +111,24 @@
     box-shadow:0 3px 10px rgba(0,0,0,0.35);
   }
   .jobselect .jdot{ width:9px; height:9px; border-radius:50%; background:var(--accent); flex-shrink:0; }
-  .dial{
-    width:180px;height:180px; border-radius:50%; border:3px dashed var(--border);
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    position:relative; background:radial-gradient(circle at 35% 30%, var(--panel2), var(--panel) 70%);
-    box-shadow:inset 0 2px 4px rgba(255,255,255,0.03), inset 0 -3px 8px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.35);
-    transition:border-color .3s, box-shadow .3s; text-align:center; padding:10px;
+  .gauge{ width:100%; }
+  .gauge-row{ display:flex; align-items:center; gap:10px; width:100%; }
+  .gauge-side{ text-align:center; min-width:50px; flex-shrink:0; }
+  .gauge-side .gs-lbl{ font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-muted); }
+  .gauge-side .gs-time{ font-family:'JetBrains Mono', monospace; font-size:16px; font-weight:700; color:var(--text); margin-top:3px; }
+  .gauge-mid{ flex:1; }
+  .gauge-track{
+    position:relative; height:16px; border-radius:8px; background:var(--panel2); border:1px solid var(--border);
+    overflow:hidden; display:flex; box-shadow:inset 0 2px 4px rgba(0,0,0,0.4);
   }
-  .dial.working{ border-color:var(--accent); border-style:solid; box-shadow:inset 0 2px 4px rgba(255,255,255,0.03), inset 0 -3px 8px rgba(0,0,0,0.4), 0 0 0 6px rgba(226,54,54,0.10), 0 0 26px rgba(226,54,54,0.28); }
-  .dial.pause{ border-color:var(--text-muted); border-style:solid; }
-  .dial .dtime{ font-family:'JetBrains Mono', monospace; font-size:22px; font-weight:600; color:var(--text); }
-  .dial.working .dtime{ color:var(--accent); }
-  .dial .dstat{ margin-top:6px; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-muted); }
+  .gauge-fill{ height:100%; background:linear-gradient(90deg, var(--accent-dim), var(--accent)); transition:width .3s; }
+  .gauge-boost{
+    height:100%; background:repeating-linear-gradient(45deg, #E8B23D 0 6px, #c98f22 6px 12px);
+    box-shadow:0 0 10px rgba(232,178,61,0.7); transition:width .3s;
+  }
+  .gauge-marks{ display:flex; justify-content:space-between; font-size:10px; color:var(--text-muted); margin-top:4px; font-family:'JetBrains Mono', monospace; }
+  .gauge-status{ text-align:center; margin-top:10px; font-size:12px; color:var(--text-muted); letter-spacing:0.3px; min-height:16px; }
+  .gauge-status .boost-tag{ color:#E8B23D; font-weight:700; }
   .punchrow{ display:flex; gap:10px; width:100%; margin-top:18px; }
   .punchbtn{
     flex:1; padding:15px; border-radius:12px; border:none;
@@ -139,14 +145,14 @@
   .bigstat .num{ font-family:'JetBrains Mono', monospace; font-size:32px; font-weight:700; line-height:1; }
   .bigstat .num.pos{ color:var(--positive); }
   .bigstat .num.warn{ color:var(--accent); }
-  .bigstat .lbl{ font-size:12px; color:var(--text-muted); margin-top:4px; }
+  .bigstat .lbl{ font-size:13px; color:var(--text-muted); margin-top:4px; }
   .statgrid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:10px; }
   .statgrid.three{ grid-template-columns:1fr 1fr 1fr; }
   .statgrid .box{ background:var(--panel2); border:1px solid var(--border); border-radius:10px; padding:10px 12px; }
   .statgrid .box .v{ font-family:'JetBrains Mono', monospace; font-size:18px; font-weight:600; }
   .statgrid .box .v.pos{ color:var(--positive); }
   .statgrid .box .v.warn{ color:var(--accent); }
-  .statgrid .box .k{ font-size:11px; color:var(--text-muted); margin-top:2px; }
+  .statgrid .box .k{ font-size:12px; color:var(--text-muted); margin-top:2px; }
   .feierabend{
     margin-top:12px; background:var(--panel2); border:1px solid var(--border); border-radius:10px;
     padding:12px; text-align:center;
@@ -175,18 +181,18 @@
     border:1px solid var(--border); border-radius:10px; padding:10px 12px; cursor:pointer;
   }
   .dayitem.today{ border-color:var(--accent); }
-  .dayitem .dname{ font-size:13px; }
-  .dayitem .dname small{ display:block; color:var(--text-muted); font-size:11px; }
-  .dayitem .dvals{ text-align:right; font-family:'JetBrains Mono', monospace; font-size:13px; }
-  .dayitem .dvals .delta{ display:block; font-size:11px; margin-top:2px; }
+  .dayitem .dname{ font-size:15px; }
+  .dayitem .dname small{ display:block; color:var(--text-muted); font-size:13px; }
+  .dayitem .dvals{ text-align:right; font-family:'JetBrains Mono', monospace; font-size:15px; }
+  .dayitem .dvals .delta{ display:block; font-size:13px; margin-top:2px; }
   .dayitem .dvals .delta.pos{ color:var(--positive); }
   .dayitem .dvals .delta.warn{ color:var(--accent); }
-  .badge{ font-size:12px; font-weight:600; }
+  .badge{ font-size:14px; font-weight:600; }
   .badge.urlaub{ color:var(--accent); }
   .badge.ueberstd{ color:var(--positive); }
   .badge.feiertag{ color:var(--text); }
 
-  .dicon{ font-size:14px; margin-right:7px; display:inline-block; width:16px; text-align:center; }
+  .dicon{ font-size:16px; margin-right:7px; display:inline-block; width:18px; text-align:center; }
   .dicon.ico-urlaub{ color:var(--accent); }
   .dicon.ico-feiertag{ color:var(--text); }
   .dicon.ico-ueberstd{ color:var(--positive); }
@@ -305,7 +311,8 @@
 <script>
 (function(){
   "use strict";
-  var APP_VERSION = "1.18";
+  var APP_VERSION = "1.19";
+  var MARKER_ICON = "⚠️";
   var STORAGE_KEY = "zeiterfassung_data_v1";
 
   /* ---------- State ---------- */
@@ -477,6 +484,10 @@
     return sum;
   }
 
+  // durchschnittliche Tagesarbeitszeit (Sollstunden/Woche ÷ Arbeitstage), unabhängig vom Wochentag
+  function sollProTagAvg(){
+    return state.settings.sollWoche / (state.settings.workdays.length || 1);
+  }
   // Feierabend-Info für einen Tag: { ts, echt } — echt=true wenn der Tag abgeschlossen ist
   // (dann ts = tatsächliches, spätestes Segment-Ende), sonst echt=false und ts = Hochrechnung
   function feierabendInfo(dateStr){
@@ -492,10 +503,9 @@
     if(istAktiv) starts.push(state.laufend.startTs);
     if(starts.length===0) return null;
     var erster = Math.min.apply(null, starts);
-    // Feierabend-Ziel: immer die durchschnittliche Tagesarbeitszeit (Sollstunden/Woche ÷ Arbeitstage),
-    // unabhängig davon, ob der heutige Wochentag als Arbeitstag markiert ist (z.B. spontane Zusatzschicht)
-    var sollProTag = state.settings.sollWoche / (state.settings.workdays.length || 1);
-    var sollMs = sollProTag * 3600000;
+    // Feierabend-Ziel: immer die durchschnittliche Tagesarbeitszeit, unabhängig davon, ob der
+    // heutige Wochentag als Arbeitstag markiert ist (z.B. spontane Zusatzschicht)
+    var sollMs = sollProTagAvg() * 3600000;
     var pausenMs = pausenStundenTag(dateStr) * 3600000;
     if(state.laufendPause && state.laufendPause.datum === dateStr){
       pausenMs += (Date.now() - state.laufendPause.startTs);
@@ -508,13 +518,15 @@
     getWeekDates(dateStr).forEach(function(ds){ saldo += istStundenTag(ds) - sollStundenTag(ds); });
     return saldo;
   }
-  // Echter Überstunden-/Fehlstunden-Saldo NUR der bereits gelebten Tage dieser Woche (Montag bis
-  // einschließlich dateStr) – zukünftige Tage der Woche, die noch gar nicht gearbeitet wurden,
-  // zählen hier bewusst NICHT als Minus mit (anders als wochenSaldo)
+  // Echter Überstunden-/Fehlstunden-Saldo NUR der bereits abgeschlossenen Tage dieser Woche (Montag bis
+  // einschließlich dateStr) – zukünftige Tage zählen NICHT mit (anders als wochenSaldo), und der
+  // heutige Tag zählt erst mit, wenn er wirklich abgeschlossen ist (nicht während man noch eingestempelt ist)
   function ueberstundenanteilWoche(dateStr){
     var saldo = 0;
+    var heuteOffen = !!(state.laufend || state.laufendPause);
     getWeekDates(dateStr).forEach(function(ds){
       if(ds > dateStr) return;
+      if(ds === dateStr && heuteOffen) return;
       saldo += istStundenTag(ds) - sollStundenTag(ds);
     });
     return saldo;
@@ -549,7 +561,7 @@
     }
   }
   function updatePauseDigits(){
-    var el = document.querySelector(".dial .dtime");
+    var el = document.getElementById("gaugePauseTime");
     if(!el || !state.laufendPause) return;
     var vorherigeMs = pausenStundenTag(state.laufendPause.datum) * 3600000;
     var diff = vorherigeMs + (Date.now() - state.laufendPause.startTs);
@@ -567,26 +579,46 @@
     var soll = sollStundenTag(ds);
     var ueber = ist - soll;
 
-    var dialClass = "", dialTime = "--:--", dialStat = "Nicht gestempelt";
+    var sollProTag = sollProTagAvg();
+
+    var startsArr = [];
+    (t ? t.segmente||[] : []).forEach(function(s){ startsArr.push(s.startTs); });
+    if(state.laufend) startsArr.push(state.laufend.startTs);
+    var startTs = startsArr.length ? Math.min.apply(null, startsArr) : null;
+    var tagAbgeschlossen = !state.laufend && t && t.segmente && t.segmente.length > 0;
+    var stopTs = null;
+    if(tagAbgeschlossen){
+      var endsArr = t.segmente.map(function(s){ return s.endTs; });
+      stopTs = Math.max.apply(null, endsArr);
+    }
+
+    var boostHours = Math.max(0, ist - sollProTag);
+    var fillFrac = sollProTag > 0 ? Math.min(ist / sollProTag, 1) : (ist > 0 ? 1 : 0);
+    var boostFrac = sollProTag > 0 ? Math.min(boostHours / sollProTag, 1) : 0;
+    var fillPct = Math.max(0, Math.round(fillFrac * 1000) / 10);
+    var boostPct = Math.max(0, Math.round(boostFrac * 1000) / 10);
+
+    var gaugeStatusHtml = "";
     if(state.laufendPause){
-      dialClass = "pause";
       var vorherigeMs = pausenStundenTag(state.laufendPause.datum) * 3600000;
       var totalMs = vorherigeMs + (Date.now() - state.laufendPause.startTs);
       var totalS = Math.floor(totalMs/1000);
       var hh0 = Math.floor(totalS/3600), mm0 = pad(Math.floor((totalS%3600)/60)), ss0 = pad(totalS%60);
-      dialTime = (hh0>0 ? hh0+":" : "") + mm0 + ":" + ss0;
-      dialStat = "Pause läuft · insgesamt heute";
-    } else if(state.laufend){
-      dialClass = "working"; dialTime = fmtTime(state.laufend.startTs); dialStat = "Im Dienst seit";
+      var pauseDisplay = (hh0>0 ? hh0+":" : "") + mm0 + ":" + ss0;
+      gaugeStatusHtml = '⏸ Pause läuft · <span id="gaugePauseTime">' + pauseDisplay + '</span>';
+    } else if(boostHours > 0){
+      gaugeStatusHtml = '<span class="boost-tag">🚀 Boost +' + fmtHM(boostHours) + '</span>';
     }
 
     var html = "";
     html += '<div class="card"><div class="clockwrap">';
     html += '<button class="jobselect" id="jobSelectBtn"><span class="jdot"></span>' + (state.aktiverJob ? escapeHtml(state.aktiverJob) : "Kein Job gewählt") + '</button>';
-    html += '<div class="dial ' + dialClass + '">';
-    html += '<div class="dtime">' + dialTime + '</div>';
-    html += '<div class="dstat">' + dialStat + '</div>';
-    html += '</div>';
+    html += '<div class="gauge"><div class="gauge-row">';
+    html += '<div class="gauge-side"><div class="gs-lbl">Start</div><div class="gs-time">' + (startTs ? fmtTime(startTs) : "--:--") + '</div></div>';
+    html += '<div class="gauge-mid"><div class="gauge-track"><div class="gauge-fill" style="width:' + fillPct + '%;"></div><div class="gauge-boost" style="width:' + boostPct + '%;"></div></div>';
+    html += '<div class="gauge-marks"><span>0</span><span>' + fmtH(sollProTag) + '</span></div></div>';
+    html += '<div class="gauge-side"><div class="gs-lbl">Stop</div><div class="gs-time">' + (stopTs ? fmtTime(stopTs) : "--:--") + '</div></div>';
+    html += '</div><div class="gauge-status">' + gaugeStatusHtml + '</div></div>';
     html += '<div class="punchrow" id="punchRow"></div>';
     var laufendAktiv = !!(state.laufend || state.laufendPause);
     if(laufendAktiv){
@@ -632,8 +664,8 @@
       html += '<button class="ghostbtn" id="addManualSeg">+ Arbeitszeit manuell eintragen</button>';
       html += '<button class="ghostbtn" id="addManualPause">+ Pause manuell eintragen</button>';
       html += '<button class="ghostbtn" id="addManualHours">+ Zusätzliche Stunden (Korrektur)</button>';
-      html += '<label class="field">Markierung (frei, z.B. Symbol oder Text)</label>';
-      html += '<input type="text" id="dayMarker" maxlength="24" placeholder="z.B. ⭐" value="' + escapeHtml((t && t.marker) || "") + '">';
+      html += '<label class="field">Markierung</label>';
+      html += '<button type="button" class="pill ' + ((t && t.marker===MARKER_ICON)?'active':'') + '" id="dayMarkerBtn" style="display:inline-block; width:auto; padding:9px 18px;">' + MARKER_ICON + ' Markiert</button>';
       html += '</div>';
     }
 
@@ -662,10 +694,11 @@
     if(fixBtn) fixBtn.addEventListener("click", function(){ openFixStartModal(); });
     var jobBtn = document.getElementById("jobSelectBtn");
     if(jobBtn) jobBtn.addEventListener("click", openJobPicker);
-    var markerEl = document.getElementById("dayMarker");
-    if(markerEl) markerEl.addEventListener("blur", function(){
-      ensureTag(ds).marker = markerEl.value;
-      saveState();
+    var markerBtn = document.getElementById("dayMarkerBtn");
+    if(markerBtn) markerBtn.addEventListener("click", function(){
+      var tg = ensureTag(ds);
+      tg.marker = (tg.marker === MARKER_ICON) ? "" : MARKER_ICON;
+      saveState(); render();
     });
   }
 
@@ -1170,25 +1203,25 @@
     var dates = getWeekDates(state.ui.weekAnchor);
     var wnum = getISOWeekNumber(strToDate(dates[0]));
     var soll=0, ist=0;
+    dates.forEach(function(ds){ soll += sollStundenTag(ds); ist += istStundenTag(ds); });
+    var rest = soll - ist;
+
     var html = '<div class="card"><div class="navrow">';
     html += '<button class="navbtn" id="prevWeek">‹</button>';
     html += '<div class="navlabel">KW ' + wnum + '<small>' + fmtRangeShort(dates[0], dates[6]) + '</small></div>';
     html += '<button class="navbtn" id="nextWeek">›</button></div>';
-    html += iconLegendHtml();
-    html += '<div class="daylist">';
-    dates.forEach(function(ds){
-      var s = sollStundenTag(ds), i = istStundenTag(ds);
-      soll += s; ist += i;
-      html += dayRow(ds, s, i);
-    });
-    html += '</div></div>';
-
-    var rest = soll - ist;
-    html += '<div class="card"><h2>Diese Woche</h2>';
     html += '<div class="bigstat"><div><div class="num ' + (rest<=0?'pos':'warn') + '">' + fmtH(Math.abs(rest)) + '</div><div class="lbl">' + (rest<0 ? "Überstunden" : "noch zu bringen") + '</div></div></div>';
     html += '<div class="statgrid"><div class="box"><div class="v">' + fmtH(soll) + '</div><div class="k">Soll Woche</div></div>';
     html += '<div class="box"><div class="v">' + fmtH(ist) + '</div><div class="k">Ist Woche</div></div></div>';
     html += '</div>';
+
+    html += '<div class="card">';
+    html += iconLegendHtml();
+    html += '<div class="daylist">';
+    dates.forEach(function(ds){
+      html += dayRow(ds, sollStundenTag(ds), istStundenTag(ds));
+    });
+    html += '</div></div>';
 
     mainEl.innerHTML = html;
     document.getElementById("prevWeek").addEventListener("click", function(){ state.ui.weekAnchor = dateToStr(addDays(strToDate(dates[0]),-7)); saveState(); render(); });
@@ -1197,7 +1230,7 @@
   }
 
   function iconLegendHtml(){
-    var html = '<div style="display:flex;flex-wrap:wrap;gap:10px;font-size:11px;color:var(--text-muted);margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border);">';
+    var html = '<div style="display:flex;flex-wrap:wrap;gap:10px;font-size:13px;color:var(--text-muted);margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border);">';
     html += '<span><span class="dicon ico-arbeit" style="margin-right:3px;">⚒</span>Arbeit</span>';
     html += '<span><span class="dicon ico-urlaub" style="margin-right:3px;">✈</span>Urlaub</span>';
     html += '<span><span class="dicon ico-feiertag" style="margin-right:3px;">★</span>Feiertag</span>';
@@ -1257,8 +1290,8 @@
       var soll = sollStundenTag(ds), ist = istStundenTag(ds), ueber = ist-soll;
       html += '<div class="statgrid three" style="margin-top:14px;"><div class="box"><div class="v">' + fmtH(ist) + '</div><div class="k">Ist</div></div><div class="box"><div class="v">' + fmtH(soll) + '</div><div class="k">Soll</div></div><div class="box"><div class="v ' + (ueber>=0?'pos':'warn') + '">' + fmtH(ueber) + '</div><div class="k">Über/Fehl</div></div></div>';
     }
-    html += '<label class="field">Markierung (frei, z.B. Symbol oder Text)</label>';
-    html += '<input type="text" id="modMarker" maxlength="24" placeholder="z.B. ⭐" value="' + escapeHtml((t && t.marker) || "") + '">';
+    html += '<label class="field">Markierung</label>';
+    html += '<button type="button" class="pill ' + ((t && t.marker===MARKER_ICON)?'active':'') + '" id="modMarkerBtn" style="display:inline-block; width:auto; padding:9px 18px;">' + MARKER_ICON + ' Markiert</button>';
     return html;
   }
 
@@ -1295,10 +1328,11 @@
     if(msP) msP.addEventListener("click", function(){ openSegModal(ds,"pause", refresh); });
     var msH = sheet.body.querySelector("#modAddHours");
     if(msH) msH.addEventListener("click", function(){ openManualHoursModal(ds, refresh); });
-    var mMarker = sheet.body.querySelector("#modMarker");
-    if(mMarker) mMarker.addEventListener("blur", function(){
-      ensureTag(ds).marker = mMarker.value;
-      saveState();
+    var mMarkerBtn = sheet.body.querySelector("#modMarkerBtn");
+    if(mMarkerBtn) mMarkerBtn.addEventListener("click", function(){
+      var tg = ensureTag(ds);
+      tg.marker = (tg.marker === MARKER_ICON) ? "" : MARKER_ICON;
+      saveState(); refresh();
     });
   }
 
@@ -1316,20 +1350,11 @@
       if(t && t.abwesenheit==='ueberstunden') ueberTage++;
       if(t && t.abwesenheit==='feiertag') feiertagTage++;
     }
+    var rest = soll - ist;
     var html = '<div class="card"><div class="navrow">';
     html += '<button class="navbtn" id="prevMonth">‹</button>';
     html += '<div class="navlabel">' + MONTH_NAMES[m] + '<small>' + y + '</small></div>';
     html += '<button class="navbtn" id="nextMonth">›</button></div>';
-    html += iconLegendHtml();
-    html += '<div class="daylist">';
-    for(var day2=1; day2<=dim; day2++){
-      var ds2 = y+"-"+pad(m+1)+"-"+pad(day2);
-      html += dayRow(ds2, sollStundenTag(ds2), istStundenTag(ds2));
-    }
-    html += '</div></div>';
-
-    var rest = soll - ist;
-    html += '<div class="card"><h2>' + MONTH_NAMES[m] + '</h2>';
     html += '<div class="bigstat"><div><div class="num ' + (rest<=0?'pos':'warn') + '">' + fmtH(Math.abs(rest)) + '</div><div class="lbl">' + (rest<0 ? "Überstunden" : "noch zu bringen") + '</div></div></div>';
     html += '<div class="statgrid"><div class="box"><div class="v">' + fmtH(soll) + '</div><div class="k">Soll Monat</div></div>';
     html += '<div class="box"><div class="v">' + fmtH(ist) + '</div><div class="k">Ist Monat</div></div></div>';
@@ -1337,6 +1362,15 @@
     html += '<div class="box"><div class="v">' + ueberTage + '</div><div class="k">Ü-Tage genommen</div></div></div>';
     html += '<div class="statgrid"><div class="box" style="grid-column:1/-1;"><div class="v">' + feiertagTage + '</div><div class="k">Feiertage</div></div></div>';
     html += '</div>';
+
+    html += '<div class="card">';
+    html += iconLegendHtml();
+    html += '<div class="daylist">';
+    for(var day2=1; day2<=dim; day2++){
+      var ds2 = y+"-"+pad(m+1)+"-"+pad(day2);
+      html += dayRow(ds2, sollStundenTag(ds2), istStundenTag(ds2));
+    }
+    html += '</div></div>';
 
     mainEl.innerHTML = html;
     document.getElementById("prevMonth").addEventListener("click", function(){ var nd = new Date(y, m-1, 1); state.ui.monthAnchor = dateToStr(nd); saveState(); render(); });
