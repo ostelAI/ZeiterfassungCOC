@@ -119,12 +119,16 @@
   .gauge-mid{ flex:1; position:relative; }
   .gauge-svg{ width:100%; height:auto; display:block; overflow:visible; }
   .gauge-track-arc{ fill:none; stroke:#4a4040; stroke-width:16; stroke-linecap:round; }
-  .gauge-fill-arc{ fill:none; stroke:var(--accent); stroke-width:16; stroke-linecap:round; filter:drop-shadow(0 0 4px rgba(226,54,54,0.5)); }
+  .gauge-fill-arc{
+    fill:none; stroke:var(--accent); stroke-width:16; stroke-linecap:round;
+    filter:drop-shadow(0 0 7px rgba(226,54,54,0.75));
+  }
   .gauge-boost-arc{
     fill:none; stroke:#E8B23D; stroke-width:16; stroke-linecap:round;
-    filter:drop-shadow(0 0 6px rgba(232,178,61,0.8));
+    filter:drop-shadow(0 0 8px rgba(232,178,61,0.85));
   }
-  .gauge-tick{ stroke:var(--text-muted); stroke-width:2; }
+  .gauge-tick{ stroke:var(--text); stroke-width:2.5; }
+  .gauge-minor-tick{ stroke:var(--text-muted); stroke-width:1.5; opacity:0.7; }
   .gauge-label{ font-family:'JetBrains Mono', monospace; font-size:11px; fill:var(--text-muted); }
   .gauge-label-soll{ fill:var(--text); font-weight:700; }
   .gauge-center{
@@ -315,7 +319,7 @@
 <script>
 (function(){
   "use strict";
-  var APP_VERSION = "1.22";
+  var APP_VERSION = "1.23";
   var MARKER_ICON = "⚠️";
   var STORAGE_KEY = "zeiterfassung_data_v1";
 
@@ -615,9 +619,18 @@
 
     var svg = '<svg class="gauge-svg" viewBox="0 0 220 130">';
     svg += '<path class="gauge-track-arc" d="' + gaugeArcD(0,1) + '"/>';
+    // kleine Skalenstriche außerhalb des Bogens, wie bei einem Tacho
+    var minorTicks = "";
+    var TICK_COUNT = 16;
+    for(var ti=1; ti<TICK_COUNT; ti++){
+      var tf = ti/TICK_COUNT;
+      if(Math.abs(tf - sollFrac) < 0.02) continue;
+      minorTicks += '<path class="gauge-minor-tick" d="' + gaugeTickD(tf, -9, 15) + '"/>';
+    }
+    svg += minorTicks;
     if(fillFrac > 0.002) svg += '<path class="gauge-fill-arc" d="' + gaugeArcD(0, fillFrac) + '"/>';
     if(boostEndFrac > sollFrac + 0.002) svg += '<path class="gauge-boost-arc" d="' + gaugeArcD(sollFrac, boostEndFrac) + '"/>';
-    svg += '<path class="gauge-tick" d="' + gaugeTickD(sollFrac, 11, 11) + '"/>';
+    svg += '<path class="gauge-tick" d="' + gaugeTickD(sollFrac, 11, 17) + '"/>';
     // Beschriftung: "0" links, Soll-Wert genau am Strich
     svg += '<text class="gauge-label" x="' + (GAUGE_CX-GAUGE_R-4) + '" y="' + (GAUGE_CY+16) + '" text-anchor="start">0</text>';
     svg += gaugeLabelSvg(sollFrac, 20, fmtH(sollProTag), 'gauge-label gauge-label-soll');
@@ -1576,7 +1589,16 @@
 
   /* ---------- Nav wiring ---------- */
   document.querySelectorAll("nav.bottom button").forEach(function(b){
-    b.addEventListener("click", function(){ state.ui.tab = b.dataset.tab; saveState(); render(); });
+    b.addEventListener("click", function(){
+      var tab = b.dataset.tab;
+      // beim Wechsel über die untere Navigation immer auf die aktuelle Woche/Monat/Jahr springen,
+      // statt die zuletzt durchgeblätterte Periode zu behalten
+      if(tab === "woche") state.ui.weekAnchor = todayStr();
+      else if(tab === "monat") state.ui.monthAnchor = todayStr();
+      else if(tab === "jahr") state.ui.yearAnchor = (new Date()).getFullYear();
+      state.ui.tab = tab;
+      saveState(); render();
+    });
   });
 
   render();
