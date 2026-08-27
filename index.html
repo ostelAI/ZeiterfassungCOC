@@ -118,7 +118,7 @@
   .gauge-side .gs-time{ font-family:'JetBrains Mono', monospace; font-size:15px; font-weight:700; color:var(--text); margin-top:3px; }
   .gauge-mid{ flex:1; position:relative; }
   .gauge-svg{ width:100%; height:auto; display:block; overflow:visible; }
-  .gauge-track-arc{ fill:none; stroke:var(--panel2); stroke-width:16; stroke-linecap:round; }
+  .gauge-track-arc{ fill:none; stroke:#4a4040; stroke-width:16; stroke-linecap:round; }
   .gauge-fill-arc{ fill:none; stroke:var(--accent); stroke-width:16; stroke-linecap:round; filter:drop-shadow(0 0 4px rgba(226,54,54,0.5)); }
   .gauge-boost-arc{
     fill:none; stroke:#E8B23D; stroke-width:16; stroke-linecap:round;
@@ -127,7 +127,6 @@
   .gauge-tick{ stroke:var(--text-muted); stroke-width:2; }
   .gauge-label{ font-family:'JetBrains Mono', monospace; font-size:11px; fill:var(--text-muted); }
   .gauge-label-soll{ fill:var(--text); font-weight:700; }
-  .gauge-label-total{ fill:var(--accent); font-weight:700; }
   .gauge-center{
     position:absolute; left:50%; top:66%; transform:translate(-50%,-50%);
     text-align:center; width:78%; pointer-events:none;
@@ -598,6 +597,14 @@
     if(tagAbgeschlossen){
       var endsArr = t.segmente.map(function(s){ return s.endTs; });
       stopTs = Math.max.apply(null, endsArr);
+    } else if(startTs){
+      // Hochrechnung: Start + Tagessoll + bisherige Pausen (live, inkl. laufender Pause) –
+      // aktualisiert sich bei jedem Rendern (App öffnen, Pause stempeln etc.)
+      var pausenMsBisher = pausenStundenTag(ds) * 3600000;
+      if(state.laufendPause){
+        pausenMsBisher += (Date.now() - state.laufendPause.startTs);
+      }
+      stopTs = startTs + sollProTag * 3600000 + pausenMsBisher;
     }
 
     var boostHours = Math.max(0, ist - sollProTag);
@@ -611,10 +618,9 @@
     if(fillFrac > 0.002) svg += '<path class="gauge-fill-arc" d="' + gaugeArcD(0, fillFrac) + '"/>';
     if(boostEndFrac > sollFrac + 0.002) svg += '<path class="gauge-boost-arc" d="' + gaugeArcD(sollFrac, boostEndFrac) + '"/>';
     svg += '<path class="gauge-tick" d="' + gaugeTickD(sollFrac, 11, 11) + '"/>';
-    // Beschriftung: "0" links, Soll-Wert genau am Strich, Gesamtstundenzahl (live) rechts am Bogenende
+    // Beschriftung: "0" links, Soll-Wert genau am Strich
     svg += '<text class="gauge-label" x="' + (GAUGE_CX-GAUGE_R-4) + '" y="' + (GAUGE_CY+16) + '" text-anchor="start">0</text>';
     svg += gaugeLabelSvg(sollFrac, 20, fmtH(sollProTag), 'gauge-label gauge-label-soll');
-    svg += '<text class="gauge-label gauge-label-total" x="' + (GAUGE_CX+GAUGE_R+4) + '" y="' + (GAUGE_CY+16) + '" text-anchor="end">' + fmtH(ist) + '</text>';
     svg += '</svg>';
 
     var centerHtml = "";
@@ -655,11 +661,9 @@
     html += '<div class="pill ' + (abwesenheit==='ueberstunden'?'active pos':'') + '" data-abw="ueberstunden">Ü-Tag genommen</div>';
     html += '</div>';
     if(!abwesenheit){
-      html += '<div class="statgrid three" style="margin-top:12px;">';
-      html += '<div class="box"><div class="v">' + fmtH(ist) + '</div><div class="k">Ist</div></div>';
-      html += '<div class="box"><div class="v">' + fmtH(soll) + '</div><div class="k">Soll</div></div>';
-      html += '<div class="box"><div class="v ' + (ueber>=0?'pos':'warn') + '">' + fmtH(ueber) + '</div><div class="k">Über/Fehl</div></div>';
-      html += '</div>';
+      html += '<div class="bigstat" style="margin-top:12px; justify-content:center;"><div style="text-align:center;">';
+      html += '<div class="num ' + (ueber>=0?'pos':'warn') + '">' + (ueber>=0?'+':'') + fmtH(ueber) + '</div><div class="lbl">Über/Fehl heute</div>';
+      html += '</div></div>';
       var wochenUeber = wochenSaldo(ds);
       var ueAnteil = ueberstundenanteilWoche(ds);
       html += '<div class="feierabend" style="margin-top:12px;"><div class="fa-extra">';
