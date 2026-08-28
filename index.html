@@ -104,6 +104,10 @@
 
   /* Stempeluhr */
   .clockwrap{ display:flex; flex-direction:column; align-items:center; padding:8px 0 4px; }
+  .backup-hint{
+    background:rgba(232,178,61,0.12); border:1px solid #E8B23D; color:#E8B23D;
+    border-radius:10px; padding:10px 14px; margin-bottom:14px; font-size:12px; text-align:center; cursor:pointer;
+  }
   .jobselect{
     display:flex; align-items:center; gap:9px; background:var(--panel2); border:1px solid var(--accent-dim);
     border-radius:24px; padding:11px 22px; font-size:15px; font-weight:700; color:var(--text);
@@ -327,7 +331,7 @@
 <script>
 (function(){
   "use strict";
-  var APP_VERSION = "1.25";
+  var APP_VERSION = "1.26";
   var MARKER_ICON = "⚠️";
   var STORAGE_KEY = "zeiterfassung_data_v1";
 
@@ -663,6 +667,11 @@
     }
 
     var html = "";
+    var tageSeitBackup = Math.floor((Date.now() - (state.lastExportAt||0)) / 86400000);
+    if(!state.lastExportAt || tageSeitBackup > 30){
+      var backupText = state.lastExportAt ? ('Seit ' + tageSeitBackup + ' Tagen kein Backup') : 'Noch nie ein Backup gemacht';
+      html += '<div class="backup-hint" id="backupHint">⚠ ' + backupText + ' – jetzt exportieren</div>';
+    }
     html += '<div class="card"><div class="clockwrap">';
     html += '<button class="jobselect" id="jobSelectBtn"><span class="jdot"></span>' + (state.aktiverJob ? escapeHtml(state.aktiverJob) : "Kein Job gewählt") + '</button>';
     html += '<div class="gauge"><div class="gauge-row">';
@@ -741,6 +750,10 @@
       var tg = ensureTag(ds);
       tg.marker = (tg.marker === MARKER_ICON) ? "" : MARKER_ICON;
       saveState(); render();
+    });
+    var backupHintEl = document.getElementById("backupHint");
+    if(backupHintEl) backupHintEl.addEventListener("click", function(){
+      state.ui.tab = "einstellungen"; saveState(); render();
     });
   }
 
@@ -1257,6 +1270,8 @@
     html += '<div class="box"><div class="v">' + fmtH(ist) + '</div><div class="k">Ist Woche</div></div></div>';
     html += '</div>';
 
+    html += jobBreakdownCardHtml(dates);
+
     html += '<div class="card">';
     html += iconLegendHtml();
     html += '<div class="daylist">';
@@ -1269,6 +1284,34 @@
     document.getElementById("prevWeek").addEventListener("click", function(){ state.ui.weekAnchor = dateToStr(addDays(strToDate(dates[0]),-7)); saveState(); render(); });
     document.getElementById("nextWeek").addEventListener("click", function(){ state.ui.weekAnchor = dateToStr(addDays(strToDate(dates[0]),7)); saveState(); render(); });
     bindDayRows();
+  }
+
+  // Summiert die Arbeitszeit-Segmente eines Zeitraums pro Job (rohe Segmentdauer, ohne Pausenabzug)
+  function stundenProJob(dates){
+    var map = {};
+    dates.forEach(function(ds){
+      var t = getTag(ds);
+      if(!t) return;
+      (t.segmente||[]).forEach(function(s){
+        var job = s.job || "Ohne Job";
+        map[job] = (map[job]||0) + (s.endTs - s.startTs)/3600000;
+      });
+    });
+    return map;
+  }
+  // Karte "Stunden pro Job" – nur wenn mind. 2 verschiedene Jobs im Zeitraum vorkommen
+  // (bei nur einem Job wäre die Zahl wegen fehlendem Pausenabzug leicht anders als "Ist" und würde nur verwirren)
+  function jobBreakdownCardHtml(dates){
+    var map = stundenProJob(dates);
+    var keys = Object.keys(map);
+    if(keys.length < 2) return "";
+    keys.sort(function(a,b){ return map[b]-map[a]; });
+    var html = '<div class="card"><h2>Stunden pro Job</h2><div class="statgrid">';
+    keys.forEach(function(k, idx){
+      html += '<div class="box"' + (keys.length%2===1 && idx===keys.length-1 ? ' style="grid-column:1/-1;"' : '') + '><div class="v">' + fmtH(map[k]) + '</div><div class="k">' + escapeHtml(k) + '</div></div>';
+    });
+    html += '</div></div>';
+    return html;
   }
 
   function iconLegendHtml(){
@@ -1383,9 +1426,10 @@
     var d = strToDate(state.ui.monthAnchor);
     var y = d.getFullYear(), m = d.getMonth();
     var dim = daysInMonth(y,m);
-    var soll=0, ist=0, sollBrutto=0, urlaubTage=0, ueberTage=0, feiertagTage=0;
+    var soll=0, ist=0, sollBrutto=0, urlaubTage=0, ueberTage=0, feiertagTage=0, monthDates=[];
     for(var day=1; day<=dim; day++){
       var ds = y+"-"+pad(m+1)+"-"+pad(day);
+      monthDates.push(ds);
       soll += sollStundenTag(ds); ist += istStundenTag(ds);
       // für den Verdienst: reine Vertrags-Sollzeit, auch an Urlaubs-/Feiertagen (Lohnfortzahlung) –
       // Überstunden fließen NICHT in den Lohn ein, die landen im Überstundenkonto
@@ -1417,6 +1461,8 @@
       html += '<p style="margin-top:6px;">Basiert auf ' + fmtH(sollBrutto) + ' Vertrags-Sollzeit × ' + fmtEuro(state.settings.stundenlohn) + '/Std. (Überstunden zählen nicht mit, die landen im Überstundenkonto). Netto ist nur eine grobe Schätzung, kein exakter Wert wie auf dem Lohnzettel.</p>';
       html += '</div>';
     }
+
+    html += jobBreakdownCardHtml(monthDates);
 
     html += '<div class="card">';
     html += iconLegendHtml();
@@ -1579,6 +1625,8 @@
       a.href = url; a.download = "zeiterfassung_backup_" + todayStr() + ".json";
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
+      state.lastExportAt = Date.now();
+      saveState();
     });
     document.getElementById("importBtn").addEventListener("click", function(){ document.getElementById("importFile").click(); });
     document.getElementById("importFile").addEventListener("change", function(e){
@@ -1632,6 +1680,12 @@
 
   render();
 })();
+
+if("serviceWorker" in navigator){
+  window.addEventListener("load", function(){
+    navigator.serviceWorker.register("sw.js").catch(function(){});
+  });
+}
 </script>
 </body>
 </html>
