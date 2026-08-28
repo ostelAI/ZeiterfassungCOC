@@ -121,11 +121,19 @@
   .gauge-track-arc{ fill:none; stroke:#4a4040; stroke-width:16; stroke-linecap:round; }
   .gauge-fill-arc{
     fill:none; stroke:var(--accent); stroke-width:16; stroke-linecap:round;
-    filter:drop-shadow(0 0 7px rgba(226,54,54,0.75));
+    animation: gaugeGlowPulse 2.2s ease-in-out infinite;
+  }
+  @keyframes gaugeGlowPulse{
+    0%, 100%{ filter:drop-shadow(0 0 5px rgba(226,54,54,0.55)); }
+    50%{ filter:drop-shadow(0 0 12px rgba(226,54,54,1)); }
   }
   .gauge-boost-arc{
     fill:none; stroke:#E8B23D; stroke-width:16; stroke-linecap:round;
-    filter:drop-shadow(0 0 8px rgba(232,178,61,0.85));
+    animation: gaugeGlowPulseBoost 1.6s ease-in-out infinite;
+  }
+  @keyframes gaugeGlowPulseBoost{
+    0%, 100%{ filter:drop-shadow(0 0 6px rgba(232,178,61,0.6)); }
+    50%{ filter:drop-shadow(0 0 14px rgba(232,178,61,1)); }
   }
   .gauge-tick{ stroke:var(--text); stroke-width:2.5; }
   .gauge-minor-tick{ stroke:var(--text-muted); stroke-width:1.5; opacity:0.7; }
@@ -168,7 +176,7 @@
     padding:12px; text-align:center;
   }
   .feierabend .fa-extra{ display:flex; justify-content:space-between; gap:4px; flex-wrap:wrap; }
-  .feierabend .fa-mini{ display:flex; flex-direction:column; align-items:center; flex:1; min-width:70px; max-width:33%; }
+  .feierabend .fa-mini{ display:flex; flex-direction:column; align-items:center; flex:1; min-width:70px; max-width:47%; }
   .feierabend .fa-mini-v{ font-family:'JetBrains Mono', monospace; font-size:14px; font-weight:600; }
   .feierabend .fa-mini-v.pos{ color:var(--positive); }
   .feierabend .fa-mini-v.warn{ color:var(--accent); }
@@ -319,13 +327,13 @@
 <script>
 (function(){
   "use strict";
-  var APP_VERSION = "1.23";
+  var APP_VERSION = "1.24";
   var MARKER_ICON = "⚠️";
   var STORAGE_KEY = "zeiterfassung_data_v1";
 
   /* ---------- State ---------- */
   var defaultState = {
-    settings: { sollWoche: 40, workdays: [1,2,3,4,5], urlaubstageJahr: 25, jobs: [] },
+    settings: { sollWoche: 40, workdays: [1,2,3,4,5], urlaubstageJahr: 25, jobs: [], stundenlohn: 0, nettoAbzugProzent: 33 },
     tage: {},
     korrekturen: [],
     laufend: null,
@@ -471,6 +479,9 @@
     if(hh > 0 && mm > 0) return hh + " Std. " + mm + " Min.";
     if(hh > 0) return hh + " Std.";
     return mm + " Min.";
+  }
+  function fmtEuro(v){
+    return (Math.round(v*100)/100).toFixed(2).replace(".", ",") + " €";
   }
 
   // Beitrag eines Tages zum Überstundenkonto
@@ -680,7 +691,6 @@
       var wochenUeber = wochenSaldo(ds);
       var ueAnteil = ueberstundenanteilWoche(ds);
       html += '<div class="feierabend" style="margin-top:12px;"><div class="fa-extra">';
-      html += ueMiniHtml(ueber, "Überstunden heute", "Noch heute");
       html += ueMiniHtml(wochenUeber, "Überstunden Woche", "Stunden noch pro Woche");
       html += '<div class="fa-mini"><span class="fa-mini-v ' + (ueAnteil>=0?'pos':'warn') + '">' + (ueAnteil>=0?'+':'') + fmtH(ueAnteil) + '</span><span class="fa-mini-k">Überstundenanteil in der Woche</span></div>';
       html += '</div></div>';
@@ -1395,6 +1405,16 @@
     html += '<div class="statgrid"><div class="box" style="grid-column:1/-1;"><div class="v">' + feiertagTage + '</div><div class="k">Feiertage</div></div></div>';
     html += '</div>';
 
+    if(state.settings.stundenlohn > 0){
+      var bruttoMonat = ist * state.settings.stundenlohn;
+      var nettoMonat = bruttoMonat * (1 - state.settings.nettoAbzugProzent/100);
+      html += '<div class="card"><h2>Verdienst (geschätzt)</h2>';
+      html += '<div class="statgrid"><div class="box"><div class="v">' + fmtEuro(bruttoMonat) + '</div><div class="k">Brutto (exakt)</div></div>';
+      html += '<div class="box"><div class="v pos">' + fmtEuro(nettoMonat) + '</div><div class="k">Netto (grob, -' + state.settings.nettoAbzugProzent + '%)</div></div></div>';
+      html += '<p style="margin-top:6px;">Basiert auf ' + fmtH(ist) + ' erfasster Zeit × ' + fmtEuro(state.settings.stundenlohn) + '/Std. Netto ist nur eine grobe Schätzung, kein exakter Wert wie auf dem Lohnzettel.</p>';
+      html += '</div>';
+    }
+
     html += '<div class="card">';
     html += iconLegendHtml();
     html += '<div class="daylist">';
@@ -1482,6 +1502,10 @@
     html += '</div>';
     html += '<label class="field">Urlaubstage pro Jahr</label>';
     html += '<input type="number" step="1" id="setUrlaub" value="' + s.urlaubstageJahr + '">';
+    html += '<label class="field">Stundenlohn (€, für Verdienst-Anzeige im Monat)</label>';
+    html += '<input type="number" step="0.5" id="setLohn" value="' + s.stundenlohn + '">';
+    html += '<label class="field">Geschätzter Abzug für Netto (%, Steuern/Sozialabgaben)</label>';
+    html += '<input type="number" step="1" id="setAbzug" value="' + s.nettoAbzugProzent + '">';
     html += '<div class="btnrow"><button class="btn primary" id="saveSettings" style="flex:1">Speichern</button></div>';
     html += '</div>';
 
@@ -1532,6 +1556,8 @@
       state.settings.workdays = draftWorkdays.slice();
       state.settings.sollWoche = parseFloat(document.getElementById("setSoll").value) || 0;
       state.settings.urlaubstageJahr = parseInt(document.getElementById("setUrlaub").value) || 0;
+      state.settings.stundenlohn = parseFloat(document.getElementById("setLohn").value) || 0;
+      state.settings.nettoAbzugProzent = parseFloat(document.getElementById("setAbzug").value) || 0;
       saveState(); render();
     });
 
