@@ -327,7 +327,7 @@
 <script>
 (function(){
   "use strict";
-  var APP_VERSION = "1.24";
+  var APP_VERSION = "1.25";
   var MARKER_ICON = "⚠️";
   var STORAGE_KEY = "zeiterfassung_data_v1";
 
@@ -1383,10 +1383,13 @@
     var d = strToDate(state.ui.monthAnchor);
     var y = d.getFullYear(), m = d.getMonth();
     var dim = daysInMonth(y,m);
-    var soll=0, ist=0, urlaubTage=0, ueberTage=0, feiertagTage=0;
+    var soll=0, ist=0, sollBrutto=0, urlaubTage=0, ueberTage=0, feiertagTage=0;
     for(var day=1; day<=dim; day++){
       var ds = y+"-"+pad(m+1)+"-"+pad(day);
       soll += sollStundenTag(ds); ist += istStundenTag(ds);
+      // für den Verdienst: reine Vertrags-Sollzeit, auch an Urlaubs-/Feiertagen (Lohnfortzahlung) –
+      // Überstunden fließen NICHT in den Lohn ein, die landen im Überstundenkonto
+      sollBrutto += dailySollBase(ds);
       var t = getTag(ds);
       if(t && t.abwesenheit==='urlaub') urlaubTage++;
       if(t && t.abwesenheit==='ueberstunden') ueberTage++;
@@ -1406,12 +1409,12 @@
     html += '</div>';
 
     if(state.settings.stundenlohn > 0){
-      var bruttoMonat = ist * state.settings.stundenlohn;
+      var bruttoMonat = sollBrutto * state.settings.stundenlohn;
       var nettoMonat = bruttoMonat * (1 - state.settings.nettoAbzugProzent/100);
       html += '<div class="card"><h2>Verdienst (geschätzt)</h2>';
       html += '<div class="statgrid"><div class="box"><div class="v">' + fmtEuro(bruttoMonat) + '</div><div class="k">Brutto (exakt)</div></div>';
       html += '<div class="box"><div class="v pos">' + fmtEuro(nettoMonat) + '</div><div class="k">Netto (grob, -' + state.settings.nettoAbzugProzent + '%)</div></div></div>';
-      html += '<p style="margin-top:6px;">Basiert auf ' + fmtH(ist) + ' erfasster Zeit × ' + fmtEuro(state.settings.stundenlohn) + '/Std. Netto ist nur eine grobe Schätzung, kein exakter Wert wie auf dem Lohnzettel.</p>';
+      html += '<p style="margin-top:6px;">Basiert auf ' + fmtH(sollBrutto) + ' Vertrags-Sollzeit × ' + fmtEuro(state.settings.stundenlohn) + '/Std. (Überstunden zählen nicht mit, die landen im Überstundenkonto). Netto ist nur eine grobe Schätzung, kein exakter Wert wie auf dem Lohnzettel.</p>';
       html += '</div>';
     }
 
