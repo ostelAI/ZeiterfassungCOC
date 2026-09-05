@@ -716,7 +716,7 @@
     }
     html += '<div class="card"><div class="clockwrap">';
     html += '<button class="jobselect" id="jobSelectBtn"><span class="jdot"></span>' + (state.aktiverJob ? escapeHtml(state.aktiverJob) : "Kein Job gewählt") + '</button>';
-    html += '<div class="gauge"><div class="gauge-row">';
+    html += '<div class="gauge"><div class="gauge-bglogo"></div><div class="gauge-row">';
     html += '<div class="gauge-side"><div class="gs-lbl">Start</div><div class="gs-time">' + (startTs ? fmtTime(startTs) : "--:--") + '</div></div>';
     html += '<div class="gauge-mid">' + svg + '<div class="gauge-center">' + centerHtml + '</div></div>';
     html += '<div class="gauge-side"><div class="gs-lbl">Ende</div><div class="gs-time">' + (stopTs ? fmtTime(stopTs) : "--:--") + '</div></div>';
