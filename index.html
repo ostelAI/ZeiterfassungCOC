@@ -156,7 +156,7 @@
   .gauge-label{ font-family:'Orbitron',sans-serif; font-weight:600; font-size:10px; fill:var(--text-muted); }
   .gauge-label-soll{ fill:var(--text); font-weight:800; }
   .gauge-center{
-    position:absolute; left:50%; top:85%; transform:translate(-50%,-50%);
+    position:absolute; left:50%; top:90%; transform:translateX(-50%);
     text-align:center; width:78%; pointer-events:none;
   }
   .gauge-center .gc-lbl{ font-size:10px; letter-spacing:1px; text-transform:uppercase; color:var(--text-muted); }
@@ -343,7 +343,7 @@
 <script>
 (function(){
   "use strict";
-  var APP_VERSION = "1.28";
+  var APP_VERSION = "1.29";
   var MARKER_ICON = "⚠️";
   var STORAGE_KEY = "zeiterfassung_data_v1";
 
