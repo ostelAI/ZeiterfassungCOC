@@ -343,7 +343,7 @@
 <script>
 (function(){
   "use strict";
-  var APP_VERSION = "1.32";
+  var APP_VERSION = "1.33";
   var MARKER_ICON = "⚠️";
   var STORAGE_KEY = "zeiterfassung_data_v1";
 
@@ -894,25 +894,72 @@
     if(audioCtx.state === "suspended"){ audioCtx.resume(); }
     return audioCtx;
   }
-  function beep(freq, startDelay, duration){
-    var ctx = getAudioCtx();
-    if(!ctx) return;
-    var t0 = ctx.currentTime + startDelay;
-    var osc = ctx.createOscillator();
+  function noiseBuffer(ctx, duration){
+    var size = Math.max(1, Math.floor(ctx.sampleRate * duration));
+    var buffer = ctx.createBuffer(1, size, ctx.sampleRate);
+    var data = buffer.getChannelData(0);
+    for(var i=0;i<size;i++){ data[i] = Math.random()*2-1; }
+    return buffer;
+  }
+  // zwei leicht verstimmte Sägezahn-Oszillatoren durch Tiefpass = "V8-Growl"; freqStart->freqEnd = Drehzahlverlauf
+  function engineGrowl(ctx, t0, startAt, freqStart, freqEnd, rampTime, holdTime, releaseTime, gainPeak){
+    var t = t0 + startAt;
+    var osc1 = ctx.createOscillator(), osc2 = ctx.createOscillator();
+    osc1.type = "sawtooth"; osc2.type = "sawtooth";
+    osc2.detune.value = -14;
+    var filter = ctx.createBiquadFilter();
+    filter.type = "lowpass"; filter.frequency.value = 1100;
     var gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.value = freq;
-    gain.gain.setValueAtTime(0, t0);
-    gain.gain.linearRampToValueAtTime(0.15, t0 + 0.015);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
-    osc.connect(gain); gain.connect(ctx.destination);
-    osc.start(t0); osc.stop(t0 + duration + 0.02);
+    [osc1, osc2].forEach(function(osc, idx){
+      var mul = idx===0 ? 1 : 1.005;
+      osc.frequency.setValueAtTime(freqStart*mul, t);
+      osc.frequency.linearRampToValueAtTime(freqEnd*mul, t+rampTime);
+    });
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(gainPeak, t + Math.min(0.06, rampTime*0.4));
+    gain.gain.setValueAtTime(gainPeak, t + rampTime + holdTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + rampTime + holdTime + releaseTime);
+    osc1.connect(filter); osc2.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+    var stopAt = t + rampTime + holdTime + releaseTime + 0.05;
+    osc1.start(t); osc2.start(t); osc1.stop(stopAt); osc2.stop(stopAt);
+  }
+  // gefilterter Rauschausbruch: tiefe Frequenz = Anlasser-Knarren, hohe Frequenz + Sweep = Reifenquietschen
+  function noiseBurst(ctx, t0, startAt, duration, freqCenter, freqQ, gainPeak, freqSweepTo){
+    var t = t0 + startAt;
+    var src = ctx.createBufferSource();
+    src.buffer = noiseBuffer(ctx, duration);
+    var filter = ctx.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.setValueAtTime(freqCenter, t);
+    if(freqSweepTo) filter.frequency.linearRampToValueAtTime(freqSweepTo, t+duration);
+    filter.Q.value = freqQ;
+    var gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, t);
+    gain.gain.linearRampToValueAtTime(gainPeak, t + 0.02);
+    gain.gain.setValueAtTime(gainPeak, t + duration*0.7);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + duration);
+    src.connect(filter); filter.connect(gain); gain.connect(ctx.destination);
+    src.start(t); src.stop(t + duration + 0.02);
   }
   function playPunchSound(kind){
-    if(kind === "kommen"){ beep(660, 0, 0.12); beep(880, 0.11, 0.16); }
-    else if(kind === "gehen"){ beep(880, 0, 0.12); beep(587, 0.11, 0.18); }
-    else if(kind === "pauseStart"){ beep(523, 0, 0.14); }
-    else if(kind === "pauseEnde"){ beep(659, 0, 0.14); }
+    var ctx = getAudioCtx();
+    if(!ctx) return;
+    var t0 = ctx.currentTime;
+    if(kind === "kommen"){
+      // Anlasser knarrt, Motor springt an und dreht kurz hoch, pendelt sich im Leerlauf ein
+      noiseBurst(ctx, t0, 0, 0.22, 220, 2.5, 0.14);
+      engineGrowl(ctx, t0, 0.15, 70, 230, 0.22, 0.04, 0.12, 0.20);
+      engineGrowl(ctx, t0, 0.40, 150, 95, 0.10, 0.0, 0.35, 0.15);
+    } else if(kind === "pauseStart"){
+      // Vollbremsung: quietschende Reifen
+      noiseBurst(ctx, t0, 0, 0.5, 2200, 9, 0.18, 1700);
+    } else if(kind === "pauseEnde"){
+      // Gas geben: kurzer Drehzahl-Blip
+      engineGrowl(ctx, t0, 0, 95, 240, 0.16, 0.02, 0.20, 0.19);
+    } else if(kind === "gehen"){
+      // Motor geht aus: Drehzahl fällt ab, Sound verklingt
+      engineGrowl(ctx, t0, 0, 110, 40, 0.5, 0.0, 0.3, 0.16);
+    }
   }
   function punch(btn, mutate, sound){
     if(btn.disabled) return;
