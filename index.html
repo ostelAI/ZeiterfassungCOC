@@ -343,7 +343,7 @@
 <script>
 (function(){
   "use strict";
-  var APP_VERSION = "1.31";
+  var APP_VERSION = "1.32";
   var MARKER_ICON = "⚠️";
   var STORAGE_KEY = "zeiterfassung_data_v1";
 
@@ -867,28 +867,58 @@
     }
     row.innerHTML = html;
     var btnKommen = document.getElementById("btnKommen");
-    if(btnKommen) btnKommen.addEventListener("click", function(){ punch(btnKommen, function(){ state.laufend = { datum: ds, startTs: Date.now(), job: state.aktiverJob }; pendingIgnitionSweep = true; }); });
+    if(btnKommen) btnKommen.addEventListener("click", function(){ punch(btnKommen, function(){ state.laufend = { datum: ds, startTs: Date.now(), job: state.aktiverJob }; pendingIgnitionSweep = true; }, "kommen"); });
     var btnPauseStart = document.getElementById("btnPauseStart");
-    if(btnPauseStart) btnPauseStart.addEventListener("click", function(){ punch(btnPauseStart, function(){ state.laufendPause = { datum: ds, startTs: Date.now() }; }); });
+    if(btnPauseStart) btnPauseStart.addEventListener("click", function(){ punch(btnPauseStart, function(){ state.laufendPause = { datum: ds, startTs: Date.now() }; }, "pauseStart"); });
     var btnPauseEnde = document.getElementById("btnPauseEnde");
     if(btnPauseEnde) btnPauseEnde.addEventListener("click", function(){ punch(btnPauseEnde, function(){
       if(!state.laufendPause) return;
       var tg = ensureTag(state.laufendPause.datum);
       tg.pausen.push({ startTs: state.laufendPause.startTs, endTs: Date.now() });
       state.laufendPause = null;
-    }); });
+    }, "pauseEnde"); });
     var btnGehen = document.getElementById("btnGehen");
     if(btnGehen) btnGehen.addEventListener("click", function(){ punch(btnGehen, function(){
       if(!state.laufend) return;
       var tg = ensureTag(state.laufend.datum);
       tg.segmente.push({ startTs: state.laufend.startTs, endTs: Date.now(), job: state.laufend.job || null });
       state.laufend = null;
-    }); });
+    }, "gehen"); });
   }
-  function punch(btn, mutate){
+  /* ---------- Stempel-Töne ---------- */
+  var audioCtx = null;
+  function getAudioCtx(){
+    if(!audioCtx){
+      try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){ return null; }
+    }
+    if(audioCtx.state === "suspended"){ audioCtx.resume(); }
+    return audioCtx;
+  }
+  function beep(freq, startDelay, duration){
+    var ctx = getAudioCtx();
+    if(!ctx) return;
+    var t0 = ctx.currentTime + startDelay;
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, t0);
+    gain.gain.linearRampToValueAtTime(0.15, t0 + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(t0); osc.stop(t0 + duration + 0.02);
+  }
+  function playPunchSound(kind){
+    if(kind === "kommen"){ beep(660, 0, 0.12); beep(880, 0.11, 0.16); }
+    else if(kind === "gehen"){ beep(880, 0, 0.12); beep(587, 0.11, 0.18); }
+    else if(kind === "pauseStart"){ beep(523, 0, 0.14); }
+    else if(kind === "pauseEnde"){ beep(659, 0, 0.14); }
+  }
+  function punch(btn, mutate, sound){
     if(btn.disabled) return;
     btn.disabled = true;
     btn.classList.add("pressed");
+    if(sound) playPunchSound(sound);
     setTimeout(function(){ mutate(); saveState(); render(); }, 130);
   }
 
