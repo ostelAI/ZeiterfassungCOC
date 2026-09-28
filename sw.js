@@ -4,7 +4,7 @@
 // WICHTIG: CACHE_NAME bei jedem Versions-Bump mit APP_VERSION aus zeiterfassung.html synchron halten,
 // damit beim Update garantiert der alte Cache-Eintrag verworfen wird statt nur überschrieben zu werden
 // (verhindert, dass bei kurzem Netzwerkausfall aus Versehen eine sehr alte, längst überschriebene Version einspringt)
-var CACHE_NAME = "zeiterfassung-cache-v2.1.0";
+var CACHE_NAME = "zeiterfassung-cache-v2.1.1";
 var CACHE_FILES = ["./", "./index.html", "./zeiterfassung.html"];
 
 self.addEventListener("install", function(event){
